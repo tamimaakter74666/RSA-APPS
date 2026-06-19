@@ -122,3 +122,32 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)
 }
+
+val apkProvider = layout.buildDirectory.file("outputs/apk/debug/app-debug.apk")
+val rootDirFile = rootDir
+val landingPageDirFile = file("${rootDir}/landing_page")
+
+tasks.register("copyApkToLandingPages") {
+  dependsOn("assembleDebug")
+  val inputApk = apkProvider
+  val dest1 = rootDirFile.resolve("app-debug.apk")
+  val dest2 = landingPageDirFile.resolve("app-debug.apk")
+  
+  doLast {
+    val apkFile = inputApk.get().asFile
+    if (apkFile.exists()) {
+      apkFile.copyTo(dest1, overwrite = true)
+      apkFile.copyTo(dest2, overwrite = true)
+      println("Successfully copied APK to both locations: $dest1 and $dest2")
+    } else {
+      println("Error: APK file not found at ${apkFile.absolutePath}")
+    }
+  }
+}
+
+tasks.whenTaskAdded {
+  if (name == "assembleDebug") {
+    finalizedBy("copyApkToLandingPages")
+  }
+}
+

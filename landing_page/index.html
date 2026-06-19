@@ -407,42 +407,74 @@
 
         // Dynamic synchronizer for Version Control
         async function syncVersionManifest() {
-            const versionUrl = 'https://raw.githubusercontent.com/arafatislam746672/rimonsports/main/version.json';
+            let data = null;
+            try {
+                const localRes = await fetch('../version.json');
+                if (localRes.ok) {
+                    data = await localRes.json();
+                } else {
+                    const fallbackRes = await fetch('./version.json');
+                    if (fallbackRes.ok) {
+                        data = await fallbackRes.json();
+                    }
+                }
+            } catch (err) {
+                console.warn('Local version.json not available, trying remote url.');
+            }
+
+            if (!data) {
+                const versionUrl = 'https://raw.githubusercontent.com/arafatislam746672/rimonsports/main/version.json';
+                try {
+                    const res = await fetch(versionUrl);
+                    if (res.ok) {
+                        data = await res.json();
+                    }
+                } catch (err) {
+                    console.warn('Could not load online manifest, continuing with default metadata.', err);
+                }
+            }
+
             const apkBtn = document.getElementById('apk-download-btn');
             const listVername = document.getElementById('label-vername');
             const tabVername = document.getElementById('changelog-version');
             const tabReleaseNotes = document.getElementById('changelog-notes');
 
-            try {
-                const res = await fetch(versionUrl);
-                if (res.ok) {
-                    const data = await res.json();
-                    
-                    if (data.downloadUrl) {
-                        apkBtn.href = data.downloadUrl;
-                    }
-                    if (data.versionName) {
-                        listVername.innerText = `ভার্সন: v${data.versionName}`;
-                        tabVername.innerText = `v${data.versionName}`;
-                    }
-                    if (data.releaseNotes) {
-                        const lines = data.releaseNotes.split(/\r?\n/).filter(line => line.trim().length > 0);
-                        if (lines.length > 0) {
-                            let listHtml = `<ul class="list-disc pl-5 space-y-1.5 font-medium">`;
-                            lines.forEach(line => {
-                                const cleanedLine = line.replace(/^[-\*\s•]+/, '');
-                                listHtml += `<li>${cleanedLine}</li>`;
-                            });
-                            listHtml += `</ul>`;
-                            tabReleaseNotes.innerHTML = listHtml;
-                        } else {
-                            tabReleaseNotes.innerText = data.releaseNotes;
-                        }
-                    }
-                    console.log('Dynamic version check completed.', data);
+            // Check if running in local sandbox, preview environment or localhost
+            const isLocalOrPre = window.location.hostname === 'localhost' || 
+                                 window.location.hostname === '127.0.0.1' || 
+                                 window.location.hostname.includes('ais-dev-') || 
+                                 window.location.hostname.includes('ais-pre-') ||
+                                 window.location.hostname.includes('webcontainer') ||
+                                 window.location.hostname.includes('stackblitz');
+
+            if (isLocalOrPre) {
+                apkBtn.href = '../app-debug.apk';
+                console.log('Sandbox environment detected. Redirected APK download button to local file: ../app-debug.apk');
+            }
+
+            if (data) {
+                if (!isLocalOrPre && data.downloadUrl) {
+                    apkBtn.href = data.downloadUrl;
                 }
-            } catch (err) {
-                console.warn('Fallback offline defaults continued.', err);
+                if (data.versionName) {
+                    listVername.innerText = `ভার্সন: v${data.versionName}`;
+                    tabVername.innerText = `v${data.versionName}`;
+                }
+                if (data.releaseNotes) {
+                    const lines = data.releaseNotes.split(/\r?\n/).filter(line => line.trim().length > 0);
+                    if (lines.length > 0) {
+                        let listHtml = `<ul class="list-disc pl-5 space-y-1.5 font-medium">`;
+                        lines.forEach(line => {
+                            const cleanedLine = line.replace(/^[-\*\s•]+/, '');
+                            listHtml += `<li>${cleanedLine}</li>`;
+                        });
+                        listHtml += `</ul>`;
+                        tabReleaseNotes.innerHTML = listHtml;
+                    } else {
+                        tabReleaseNotes.innerText = data.releaseNotes;
+                    }
+                }
+                console.log('Dynamic version check completed.', data);
             }
         }
 
