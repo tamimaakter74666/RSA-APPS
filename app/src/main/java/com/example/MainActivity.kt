@@ -491,28 +491,47 @@ data class UpdateInfo(
 fun preProvisionWebViewCache(context: android.content.Context) {
     try {
         val cacheDir = context.cacheDir
-        val jsDir = File(cacheDir, "WebView/Default/HTTP Cache/Code Cache/js")
-        if (!jsDir.exists()) {
-            val success = jsDir.mkdirs()
-            Log.d("WebViewApp", "Created jsDir: $success")
-        }
-        val jsKeep = File(jsDir, ".keep")
-        if (!jsKeep.exists()) {
-            val keepCreated = jsKeep.createNewFile()
-            Log.d("WebViewApp", "Created jsKeep: $keepCreated")
-        }
+        val candidatePaths = listOf(
+            "WebView/Default/HTTP Cache/Code Cache",
+            "WebView/Default/Code Cache",
+            "org.chromium.android_webview/Default/HTTP Cache/Code Cache",
+            "org.chromium.android_webview/Default/Code Cache"
+        )
+        
+        for (relPath in candidatePaths) {
+            val baseCacheDir = File(cacheDir, relPath)
+            
+            // Provision JS Cache directory
+            val jsDir = File(baseCacheDir, "js")
+            if (!jsDir.exists()) {
+                val success = jsDir.mkdirs()
+                Log.d("WebViewApp", "Pre-created jsDir at $relPath: $success")
+            }
+            val jsKeep = File(jsDir, ".keep")
+            if (!jsKeep.exists()) {
+                try {
+                    jsKeep.createNewFile()
+                } catch (e: Exception) {
+                    // ignore
+                }
+            }
 
-        val wasmDir = File(cacheDir, "WebView/Default/HTTP Cache/Code Cache/wasm")
-        if (!wasmDir.exists()) {
-            val success = wasmDir.mkdirs()
-            Log.d("WebViewApp", "Created wasmDir: $success")
+            // Provision WASM Cache directory
+            val wasmDir = File(baseCacheDir, "wasm")
+            if (!wasmDir.exists()) {
+                val success = wasmDir.mkdirs()
+                Log.d("WebViewApp", "Pre-created wasmDir at $relPath: $success")
+            }
+            val wasmKeep = File(wasmDir, ".keep")
+            if (!wasmKeep.exists()) {
+                try {
+                    wasmKeep.createNewFile()
+                } catch (e: Exception) {
+                    // ignore
+                }
+            }
         }
-        val wasmKeep = File(wasmDir, ".keep")
-        if (!wasmKeep.exists()) {
-            val keepCreated = wasmKeep.createNewFile()
-            Log.d("WebViewApp", "Created wasmKeep: $keepCreated")
-        }
-        Log.d("WebViewApp", "Pre-provisioned WebView Code Cache directories with stay-alive markers successfully.")
+        Log.d("WebViewApp", "Pre-provisioned all possible WebView Code Cache paths successfully.")
     } catch (e: Exception) {
          Log.e("WebViewApp", "Failed to pre-provision WebView cache directories: ${e.message}")
     }
