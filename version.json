@@ -1,0 +1,6 @@
+{
+  "versionCode": 3,
+  "versionName": "1.2.0",
+  "downloadUrl": "https://github.com/arafatislam746672/rimonsports/releases/latest/download/app-debug.apk",
+  "releaseNotes": "• Dynamically resolves web caching programmatically.\n• Bypasses Google Login redirect lags seamlessly.\n• Custom web buffer optimization on initialization.\n• Beautiful responsive Material Design 3 bento layouts."
+}
