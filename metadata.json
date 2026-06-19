@@ -1,0 +1,6 @@
+{
+  "name": "Rimon Sports",
+  "description": "Native Android application for Rimon Sports Academy featuring a dynamic animated intro splash screen, live web stream loading, and dynamic remote control.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

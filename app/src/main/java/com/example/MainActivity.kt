@@ -1,0 +1,1918 @@
+package com.example
+
+import android.annotation.SuppressLint
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
+import android.util.Log
+import android.view.ViewGroup
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.input.pointer.pointerInput
+import coil.compose.AsyncImage
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.border
+import androidx.core.content.FileProvider
+import androidx.lifecycle.lifecycleScope
+import java.io.File
+import java.io.FileOutputStream
+import com.example.ui.theme.*
+import com.airbnb.lottie.compose.*
+import androidx.compose.ui.graphics.drawscope.rotate
+import com.google.firebase.FirebaseApp
+import com.google.firebase.FirebaseOptions
+import com.google.firebase.remoteconfig.FirebaseRemoteConfig
+import com.google.firebase.remoteconfig.remoteConfigSettings
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONObject
+
+@OptIn(ExperimentalMaterial3Api::class)
+class MainActivity : ComponentActivity() {
+
+    var filePathCallback: android.webkit.ValueCallback<Array<Uri>>? = null
+
+    val fileChooserLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val results = if (result.resultCode == RESULT_OK) {
+            val dataString = result.data?.dataString
+            val clipData = result.data?.clipData
+            if (clipData != null) {
+                val count = clipData.itemCount
+                val uris = Array(count) { i -> clipData.getItemAt(i).uri }
+                uris
+            } else if (dataString != null) {
+                arrayOf(Uri.parse(dataString))
+            } else {
+                null
+            }
+        } else {
+            null
+        }
+        filePathCallback?.onReceiveValue(results)
+        filePathCallback = null
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+
+        // Pre-emptively create WebView internal cache directories synchronously to guarantee they exist before Chromium starts initializing
+        preProvisionWebViewCache(this)
+
+        // Initialize Firebase programmatically to avoid crashes if Google Services config is missing
+        try {
+            if (FirebaseApp.getApps(this).isEmpty()) {
+                val options = FirebaseOptions.Builder()
+                    .setApplicationId("1:1911891122:android:5a5b5c5d5e5f")
+                    .setProjectId("portal-webview")
+                    .setApiKey(BuildConfig.GEMINI_API_KEY.ifEmpty { "AIzaSyFakeKeyPlaceholder" })
+                    .build()
+                FirebaseApp.initializeApp(this, options)
+                Log.d("WebViewApp", "Firebase initialized programmatically.")
+            }
+        } catch (e: Exception) {
+            Log.e("WebViewApp", "Could not initialize Firebase programmatically: ${e.message}")
+        }
+
+        setContent {
+            MyApplicationTheme {
+                val context = LocalContext.current
+                val configManager = remember { ConfigManager.getInstance(context) }
+                val configState by configManager.configState.collectAsState()
+                
+                var urlState by remember { mutableStateOf(configState.websiteUrl) }
+                LaunchedEffect(configState.websiteUrl) {
+                    urlState = configState.websiteUrl
+                }
+
+                var isLoadingConfig by remember { mutableStateOf(true) }
+                var isSplashScreenActive by remember { mutableStateOf(true) }
+                var showUpdateDialog by remember { mutableStateOf(false) }
+                var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
+                var isDownloadingUpdate by remember { mutableStateOf(false) }
+                var updateDownloadProgress by remember { mutableStateOf(0f) }
+                var updateErrorMessage by remember { mutableStateOf<String?>(null) }
+                var isWebViewExpanded by remember { mutableStateOf(true) }
+                var showClearCacheDialog by remember { mutableStateOf(false) }
+                var showAdminPanel by remember { mutableStateOf(false) }
+                var bypassOfflineCheck by remember { mutableStateOf(false) }
+                var connectivityRefreshTrigger by remember { mutableStateOf(0) }
+
+                if (showAdminPanel) {
+                    SecretAdminPanel(onDismissRequest = { showAdminPanel = false })
+                }
+                
+                LaunchedEffect(Unit) {
+                    kotlinx.coroutines.delay(2000)
+                    isSplashScreenActive = false
+                }
+                
+                val coroutineScope = rememberCoroutineScope()
+                val webViewRef = remember { mutableStateOf<WebView?>(null) }
+
+                var lastBackPressTime by remember { mutableStateOf(0L) }
+
+                // Clean Hardware Back Navigation: Back button navigates back in history. If we can't go back further, we go to the home URL of the web app ("back a asle o web ap ar home asbe"). If currently on the home URL, double-tap back to exit.
+                BackHandler(enabled = true) {
+                    val webView = webViewRef.value
+                    if (webView != null) {
+                        if (webView.canGoBack()) {
+                            webView.goBack()
+                        } else {
+                            val currentUrl = webView.url?.trimEnd('/') ?: ""
+                            val homeUrl = urlState.trimEnd('/')
+                            if (currentUrl.isNotEmpty() && currentUrl != homeUrl && currentUrl != "$homeUrl/") {
+                                webView.loadUrl(urlState)
+                            } else {
+                                val currentTime = System.currentTimeMillis()
+                                if (currentTime - lastBackPressTime < 2000) {
+                                    (context as? android.app.Activity)?.finish()
+                                } else {
+                                    lastBackPressTime = currentTime
+                                    android.widget.Toast.makeText(context, "Press back again to exit", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    } else {
+                        val currentTime = System.currentTimeMillis()
+                        if (currentTime - lastBackPressTime < 2000) {
+                            (context as? android.app.Activity)?.finish()
+                        } else {
+                            lastBackPressTime = currentTime
+                            android.widget.Toast.makeText(context, "Press back again to exit", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+
+                // Initialize Remote Config and Fetch URL
+                LaunchedEffect(Unit) {
+                    try {
+                        configManager.startRealTimeSync { newUrl ->
+                            urlState = newUrl
+                        }
+                        isLoadingConfig = false
+                        
+                        // Dynamic Update notification check on start
+                        checkForUpdates(context) { info ->
+                            updateInfo = info
+                            showUpdateDialog = true
+                        }
+                    } catch (e: Exception) {
+                        Log.e("WebViewApp", "Remote Config fetch error: ${e.message}")
+                        isLoadingConfig = false
+                        checkForUpdates(context) { info ->
+                            updateInfo = info
+                            showUpdateDialog = true
+                        }
+                    }
+                }
+
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    containerColor = BentoBackground,
+                    topBar = {
+                        if (!isWebViewExpanded) {
+                            TopAppBar(
+                                title = {
+                                    Column(
+                                        modifier = Modifier.pointerInput(Unit) {
+                                            detectTapGestures(
+                                                onLongPress = {
+                                                    showClearCacheDialog = true
+                                                }
+                                            )
+                                        }
+                                    ) {
+                                        Text(
+                                            text = configState.appName.ifEmpty { "Rimon Sports" },
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = BentoDarkText
+                                        )
+                                        val cleanUrlHost = remember(urlState) {
+                                            try {
+                                                Uri.parse(urlState).host ?: "portal.internal.net"
+                                            } catch (e: Exception) {
+                                                "portal.internal.net"
+                                            }
+                                        }
+                                        Text(
+                                            text = cleanUrlHost,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = BentoMutedText
+                                        )
+                                    }
+                                },
+                                actions = {
+                                    // Manual Sync check matching topbar layout
+                                    IconButton(
+                                        onClick = {
+                                            coroutineScope.launch {
+                                                checkForUpdates(context) { info ->
+                                                    updateInfo = info
+                                                    showUpdateDialog = true
+                                                }
+                                            }
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Refresh,
+                                            contentDescription = "Sync",
+                                            tint = BentoDarkText
+                                        )
+                                    }
+                                },
+                                colors = TopAppBarDefaults.topAppBarColors(
+                                    containerColor = BentoBackground
+                                )
+                            )
+                        }
+                    }
+                ) { innerPadding ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(if (isWebViewExpanded) PaddingValues(0.dp) else innerPadding)
+                    ) {
+                        // Hidden Top-Left corner long-press trigger for Secret Admin Console
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .statusBarsPadding()
+                                .size(48.dp)
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onLongPress = {
+                                            showAdminPanel = true
+                                        }
+                                    )
+                                }
+                        )
+
+                        val isMaintenanceActive = configState.maintenanceMode || isInsideMaintenanceWindow(configState.maintenanceStartTime, configState.maintenanceEndTime)
+                        val connectivityState by rememberConnectivityState(context = context, refreshTrigger = connectivityRefreshTrigger)
+                        val isOffline = !connectivityState && !bypassOfflineCheck
+
+                        if (isLoadingConfig) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(color = Purple40)
+                            }
+                        } else if (isMaintenanceActive) {
+                            MaintenanceScreen(
+                                endTime = configState.maintenanceEndTime,
+                                isNight = isNightTime(),
+                                isOffline = false
+                            )
+                        } else if (isOffline) {
+                            MaintenanceScreen(
+                                endTime = "",
+                                isNight = isNightTime(),
+                                isOffline = true,
+                                onRetry = {
+                                    bypassOfflineCheck = false
+                                    connectivityRefreshTrigger++
+                                },
+                                onProceedAnyway = {
+                                    bypassOfflineCheck = true
+                                }
+                            )
+                        } else {
+                            WebViewScreen(
+                                url = urlState,
+                                modifier = Modifier.fillMaxSize(),
+                                onWebViewCreated = { webView ->
+                                    webViewRef.value = webView
+                                }
+                            )
+                        }
+
+                        // Beautiful Adaptive M3 Dialog styled with correct overlay elements from Design HTML
+                        if (showUpdateDialog && updateInfo != null) {
+                            AlertDialog(
+                                onDismissRequest = { 
+                                    showUpdateDialog = false 
+                                },
+                                icon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = "Update Check",
+                                        tint = Purple40
+                                    )
+                                },
+                                shape = RoundedCornerShape(28.dp),
+                                containerColor = BentoSecondaryContainer,
+                                title = {
+                                    Text(
+                                        text = "Update Available",
+                                        fontWeight = FontWeight.Bold,
+                                        color = BentoDarkText
+                                    )
+                                },
+                                text = {
+                                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                                        Text(
+                                            text = "A new version of the app (v${updateInfo!!.versionName}) is available.",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = BentoMutedText
+                                        )
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Text(
+                                            text = "Release Notes: ${updateInfo!!.releaseNotes}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = BentoMutedText
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = "To bypass security alerts and keep installation 100% safe, the update will be downloaded securely through your internet browser.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Purple40
+                                        )
+                                    }
+                                },
+                                confirmButton = {
+                                    Button(
+                                        onClick = {
+                                            try {
+                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(updateInfo!!.downloadUrl))
+                                                context.startActivity(intent)
+                                            } catch (e: Exception) {
+                                                Log.e("WebViewApp", "Failed to open update url: ${e.message}")
+                                            }
+                                            showUpdateDialog = false
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Purple40,
+                                            contentColor = Color.White
+                                        )
+                                    ) {
+                                        Text("Download & Update")
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(
+                                        onClick = { 
+                                            showUpdateDialog = false 
+                                        }
+                                    ) {
+                                        Text(text = "Later", color = Purple40)
+                                    }
+                                }
+                            )
+                        }
+
+                        // Beautiful M3 Dialog for Troubleshooting & Clearing cache
+                        if (showClearCacheDialog) {
+                            AlertDialog(
+                                onDismissRequest = { showClearCacheDialog = false },
+                                icon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Clear Cache & Session",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                },
+                                shape = RoundedCornerShape(28.dp),
+                                containerColor = BentoSecondaryContainer,
+                                title = {
+                                    Text(
+                                        text = "Troubleshoot Portal",
+                                        fontWeight = FontWeight.Bold,
+                                        color = BentoDarkText
+                                    )
+                                },
+                                text = {
+                                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                                        Text(
+                                            text = "This will completely clear the Portal's cache, stored cookies, and local database storage. Use this to troubleshoot content update, rendering, or session issues.",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = BentoMutedText
+                                        )
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Text(
+                                            text = "The portal page will be reloaded and re-downloaded from scratch immediately.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = BentoMutedText,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                },
+                                confirmButton = {
+                                    Button(
+                                        onClick = {
+                                            showClearCacheDialog = false
+                                            clearWebViewData(context, webViewRef.value)
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.error,
+                                            contentColor = Color.White
+                                        )
+                                    ) {
+                                        Text("Clear All Data")
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showClearCacheDialog = false }) {
+                                        Text(text = "Cancel", color = Purple40)
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+
+                AnimatedVisibility(
+                    visible = isSplashScreenActive,
+                    enter = fadeIn(),
+                    exit = fadeOut(animationSpec = tween(850, easing = FastOutSlowInEasing))
+                ) {
+                    RimonSportsSplashScreen(
+                        appName = configState.appName,
+                        appLogoUrl = configState.appLogoUrl,
+                        onLogoLongPress = { showAdminPanel = true }
+                    )
+                }
+            }
+        }
+    }
+}
+
+data class UpdateInfo(
+    val versionCode: Int,
+    val versionName: String,
+    val downloadUrl: String,
+    val releaseNotes: String
+)
+
+fun preProvisionWebViewCache(context: android.content.Context) {
+    try {
+        val cacheDir = context.cacheDir
+        val jsDir = File(cacheDir, "WebView/Default/HTTP Cache/Code Cache/js")
+        if (!jsDir.exists()) {
+            val success = jsDir.mkdirs()
+            Log.d("WebViewApp", "Created jsDir: $success")
+        }
+        val jsKeep = File(jsDir, ".keep")
+        if (!jsKeep.exists()) {
+            val keepCreated = jsKeep.createNewFile()
+            Log.d("WebViewApp", "Created jsKeep: $keepCreated")
+        }
+
+        val wasmDir = File(cacheDir, "WebView/Default/HTTP Cache/Code Cache/wasm")
+        if (!wasmDir.exists()) {
+            val success = wasmDir.mkdirs()
+            Log.d("WebViewApp", "Created wasmDir: $success")
+        }
+        val wasmKeep = File(wasmDir, ".keep")
+        if (!wasmKeep.exists()) {
+            val keepCreated = wasmKeep.createNewFile()
+            Log.d("WebViewApp", "Created wasmKeep: $keepCreated")
+        }
+        Log.d("WebViewApp", "Pre-provisioned WebView Code Cache directories with stay-alive markers successfully.")
+    } catch (e: Exception) {
+         Log.e("WebViewApp", "Failed to pre-provision WebView cache directories: ${e.message}")
+    }
+}
+
+fun clearWebViewData(context: android.content.Context, webView: android.webkit.WebView?) {
+    try {
+        // Clear WebView cache
+        webView?.clearCache(true)
+        
+        // Clear system cookies
+        val cookieManager = android.webkit.CookieManager.getInstance()
+        cookieManager.removeAllCookies { success ->
+            Log.d("WebViewApp", "Cookies cleared: $success")
+        }
+        cookieManager.flush()
+        
+        // Delete WebStorage (databases, local storage, etc.)
+        android.webkit.WebStorage.getInstance().deleteAllData()
+
+        // Re-provision directories to prevent Chromium Warnings
+        preProvisionWebViewCache(context)
+
+        // Force reload active WebView
+        webView?.reload()
+
+        android.widget.Toast.makeText(
+            context,
+            "Cleared all cache, cookies, and web storage. Portal refreshed.",
+            android.widget.Toast.LENGTH_LONG
+        ).show()
+    } catch (e: Exception) {
+        Log.e("WebViewApp", "Error clearing WebView cache & cookies: ${e.message}")
+        android.widget.Toast.makeText(
+            context,
+            "Failed to clear cache: ${e.message}",
+            android.widget.Toast.LENGTH_LONG
+        ).show()
+    }
+}
+
+@Composable
+fun WebViewScreen(
+    url: String,
+    modifier: Modifier = Modifier,
+    onWebViewCreated: (WebView) -> Unit = {}
+) {
+    val context = LocalContext.current
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val screenWidthDp = configuration.screenWidthDp
+    val isLargeScreen = screenWidthDp >= 600
+    val defaultUA = remember(context) { 
+        try { 
+            android.webkit.WebSettings.getDefaultUserAgent(context) 
+        } catch (e: Exception) { 
+            "" 
+        } 
+    }
+
+    var isLoading by remember { mutableStateOf(true) }
+    var hasError by remember { mutableStateOf(false) }
+    var webViewInstance by remember { mutableStateOf<WebView?>(null) }
+    var lastLoadedUrl by remember { mutableStateOf("") }
+    var popupMessageState by remember { mutableStateOf<android.os.Message?>(null) }
+
+    // Safely load the URL when the parameter changes (e.g., config sync) without infinite recomposition triggers
+    LaunchedEffect(url) {
+        webViewInstance?.let { webView ->
+            if (lastLoadedUrl != url) {
+                lastLoadedUrl = url
+                webView.loadUrl(url)
+            }
+        }
+    }
+
+    // Dynamically adjust browser settings and viewport on orientation/resize change
+    LaunchedEffect(isLargeScreen, defaultUA) {
+        webViewInstance?.settings?.apply {
+            if (isLargeScreen) {
+                // Large screen / tablet setup -> request iPad style tablet desktop version to adapt perfectly
+                userAgentString = "Mozilla/5.0 (iPad; CPU OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1"
+                useWideViewPort = true
+                loadWithOverviewMode = true
+            } else {
+                // Compact screen phone -> default vertical responsive app with WebView indicators removed to allow Google Sign-In
+                userAgentString = defaultUA.replace("; wv", "").replace("Version/[0-9.]+".toRegex(), "")
+                useWideViewPort = true
+                loadWithOverviewMode = true
+            }
+        }
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        if (!hasError) {
+            AndroidView(
+                factory = { context ->
+                    preProvisionWebViewCache(context)
+                    val webView = WebView(context).apply {
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                        // Enable third party cookies and general cookie acceptance
+                        val cookieManager = android.webkit.CookieManager.getInstance()
+                        cookieManager.setAcceptCookie(true)
+                        cookieManager.setAcceptThirdPartyCookies(this, true)
+                        
+                        // Explicitly enable Autofill support, allowing native Google account autofill indicators to trigger instantly
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                            importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_YES
+                        }
+
+                        // Enable web contents debugging for developers
+                        WebView.setWebContentsDebuggingEnabled(true)
+
+                        settings.apply {
+                            javaScriptEnabled = true
+                            domStorageEnabled = true
+                            databaseEnabled = true
+                            cacheMode = WebSettings.LOAD_DEFAULT
+                            loadWithOverviewMode = true
+                            useWideViewPort = true
+                            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                            javaScriptCanOpenWindowsAutomatically = true
+                            mediaPlaybackRequiresUserGesture = false
+                            allowFileAccess = true
+                            allowContentAccess = true
+                            
+                            // High performance speed and cache settings
+                            loadsImagesAutomatically = true
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                safeBrowsingEnabled = false // Slashes URL security lookup round-trip overhead on start
+                            }
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                                offscreenPreRaster = true // Renders elements ahead of time before drawing
+                            }
+                            
+                            // Enable support multiple windows to handle secure OAuth sign-in popups flawlessly in a popup dialog
+                            setSupportMultipleWindows(true)
+                            
+                            // Enable pinching zoom comfortably
+                            setSupportZoom(true)
+                            builtInZoomControls = true
+                            displayZoomControls = false
+
+                            // Adaptive layout adaptation - Set User Agent dynamically on screen width!
+                            if (isLargeScreen) {
+                                userAgentString = "Mozilla/5.0 (iPad; CPU OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1"
+                            } else {
+                                userAgentString = defaultUA.replace("; wv", "").replace("Version/[0-9.]+".toRegex(), "")
+                            }
+                        }
+                        webViewClient = object : WebViewClient() {
+                            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                                isLoading = true
+                                // Clean, zero disk access on UI thread
+                                preProvisionWebViewCache(context)
+                                
+                                // Dynamic User-Agent tuning: Swap user agent specifically when visiting Google Accounts to avoid disallowed_useragent and allow autofill!
+                                if (url != null && url.contains("accounts.google.com")) {
+                                    val cleanGoogleUA = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Mobile Safari/537.36"
+                                    view?.settings?.userAgentString = cleanGoogleUA
+                                } else {
+                                    // Reset back to adaptive user agent
+                                    view?.settings?.userAgentString = if (isLargeScreen) {
+                                        "Mozilla/5.0 (iPad; CPU OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1"
+                                    } else {
+                                        defaultUA.replace("; wv", "").replace("Version/[0-9.]+".toRegex(), "")
+                                    }
+                                }
+                            }
+                            override fun onPageFinished(view: WebView?, url: String?) {
+                                isLoading = false
+                                // Clean, zero disk access on UI thread
+                                if (url != null) {
+                                    ConfigManager.getInstance(context).markUrlAsStable(url)
+                                }
+                            }
+                            override fun onReceivedSslError(
+                                view: WebView?,
+                                handler: android.webkit.SslErrorHandler?,
+                                error: android.net.http.SslError?
+                            ) {
+                                handler?.proceed()
+                            }
+                            override fun onReceivedError(
+                                view: WebView?,
+                                request: android.webkit.WebResourceRequest?,
+                                error: android.webkit.WebResourceError?
+                            ) {
+                                if (request?.isForMainFrame == true) {
+                                    val backupUrl = ConfigManager.getInstance(context).configState.value.backupWebsiteUrl
+                                    val fallback = ConfigManager.getInstance(context).getFallbackUrl()
+                                    val failingUrlStr = request.url?.toString() ?: ""
+                                    if (failingUrlStr.isNotEmpty() && failingUrlStr != backupUrl && !failingUrlStr.contains("rimonsportsacademy.workers.dev")) {
+                                        Log.w("WebViewApp", "Main frame failure detected on $failingUrlStr. Trying backup URL: $backupUrl")
+                                        view?.loadUrl(backupUrl)
+                                    } else if (view?.url != fallback && view?.url != null) {
+                                        Log.w("WebViewApp", "Backup URL failure detected, loading fallback: $fallback")
+                                        view.loadUrl(fallback)
+                                    } else {
+                                        hasError = true
+                                        isLoading = false
+                                    }
+                                }
+                            }
+                            @Suppress("DEPRECATION")
+                            override fun onReceivedError(
+                                view: WebView?,
+                                errorCode: Int,
+                                description: String?,
+                                failingUrl: String?
+                            ) {
+                                if (failingUrl == url) {
+                                    val backupUrl = ConfigManager.getInstance(context).configState.value.backupWebsiteUrl
+                                    val fallback = ConfigManager.getInstance(context).getFallbackUrl()
+                                    val failingUrlStr = failingUrl ?: ""
+                                    if (failingUrlStr.isNotEmpty() && failingUrlStr != backupUrl && !failingUrlStr.contains("rimonsportsacademy.workers.dev")) {
+                                        Log.w("WebViewApp", "Page loading failure detected on $failingUrlStr. Trying backup URL: $backupUrl")
+                                        view?.loadUrl(backupUrl)
+                                    } else if (view?.url != fallback && view?.url != null) {
+                                        Log.w("WebViewApp", "Backup URL failure detected, loading fallback: $fallback")
+                                        view.loadUrl(fallback)
+                                    } else {
+                                        hasError = true
+                                        isLoading = false
+                                    }
+                                }
+                            }
+
+                            override fun shouldOverrideUrlLoading(
+                                view: WebView?,
+                                request: android.webkit.WebResourceRequest?
+                            ): Boolean {
+                                val destinationUrl = request?.url?.toString() ?: return false
+                                return handleCustomUrlSchemes(view, destinationUrl)
+                            }
+
+                            @Suppress("DEPRECATION")
+                            override fun shouldOverrideUrlLoading(
+                                view: WebView?,
+                                destinationUrl: String?
+                            ): Boolean {
+                                if (destinationUrl == null) return false
+                                return handleCustomUrlSchemes(view, destinationUrl)
+                            }
+                        }
+
+                        val mainActivity = context as? com.example.MainActivity
+                        
+                        webChromeClient = object : android.webkit.WebChromeClient() {
+                            override fun onCreateWindow(
+                                view: WebView?,
+                                isDialog: Boolean,
+                                isUserGesture: Boolean,
+                                resultMsg: android.os.Message?
+                            ): Boolean {
+                                popupMessageState = resultMsg
+                                return true
+                            }
+
+                            override fun onShowFileChooser(
+                                webView: WebView?,
+                                filePathCallback: android.webkit.ValueCallback<Array<Uri>>?,
+                                fileChooserParams: FileChooserParams?
+                            ): Boolean {
+                                mainActivity?.let { activity ->
+                                    activity.filePathCallback?.onReceiveValue(null)
+                                    activity.filePathCallback = filePathCallback
+                                    
+                                    val intent = fileChooserParams?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
+                                        type = "*/*"
+                                        addCategory(Intent.CATEGORY_OPENABLE)
+                                    }
+                                    try {
+                                        activity.fileChooserLauncher.launch(intent)
+                                    } catch (e: Exception) {
+                                        activity.filePathCallback = null
+                                        return false
+                                    }
+                                    return true
+                                }
+                                return false
+                            }
+                        }
+
+                        setDownloadListener { downloadUrl, userAgent, contentDisposition, mimetype, _ ->
+                            try {
+                                val request = android.app.DownloadManager.Request(Uri.parse(downloadUrl)).apply {
+                                    setMimeType(mimetype)
+                                    addRequestHeader("User-Agent", userAgent)
+                                    setDescription("Downloading file from Portal...")
+                                    setTitle(android.webkit.URLUtil.guessFileName(downloadUrl, contentDisposition, mimetype))
+                                    setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                                    setDestinationInExternalPublicDir(
+                                        android.os.Environment.DIRECTORY_DOWNLOADS,
+                                        android.webkit.URLUtil.guessFileName(downloadUrl, contentDisposition, mimetype)
+                                    )
+                                }
+                                val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+                                dm.enqueue(request)
+                                android.widget.Toast.makeText(context, "Download started...", android.widget.Toast.LENGTH_SHORT).show()
+                            } catch (e: Exception) {
+                                Log.e("WebViewApp", "Download failed: ${e.message}")
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl))
+                                    context.startActivity(intent)
+                                } catch (ex: Exception) {
+                                    Log.e("WebViewApp", "No app handled download link: ${ex.message}")
+                                }
+                            }
+                        }
+
+                        // Load the URL initially
+                        lastLoadedUrl = url
+                        loadUrl(url)
+                    }
+
+                    webViewInstance = webView
+                    onWebViewCreated(webView)
+
+                    webView
+                },
+                update = {
+                    // Update behavior managed via LaunchedEffect(url) safely to avoid endless loading loop on recomposition
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+
+            if (isLoading) {
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.TopCenter),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(BentoBackground)
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight(),
+                    colors = CardDefaults.cardColors(containerColor = BentoPrimaryContainer),
+                    shape = RoundedCornerShape(28.dp),
+                    border = BorderStroke(1.dp, BentoBorder)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .background(BentoOnPrimaryContainer, RoundedCornerShape(20.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = "Offline Warning",
+                                tint = Color.White,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+
+                        Text(
+                            text = "Portal Connection Error",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = BentoOnPrimaryContainer
+                        )
+
+                        Text(
+                            text = "Could not load the portal. Please verify your data connection and tap the button below to retry.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = BentoMutedText,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Button(
+                            onClick = {
+                                hasError = false
+                                isLoading = true
+                                webViewInstance?.let { webView ->
+                                    webView.loadUrl(url)
+                                } ?: onWebViewCreated(WebView(context).apply {
+                                    loadUrl(url)
+                                })
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Purple40,
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(100.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Retry Connection",
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Retry Connection", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (popupMessageState != null) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = {
+                popupMessageState = null
+            },
+            properties = androidx.compose.ui.window.DialogProperties(
+                usePlatformDefaultWidth = false
+            )
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .padding(8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.95f),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background),
+                    elevation = CardDefaults.cardElevation(8.dp)
+                ) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = "Secure Connection",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Secure Sign-In",
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                            }
+                            IconButton(
+                                onClick = { popupMessageState = null }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Close window"
+                                )
+                            }
+                        }
+                        
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.12f))
+                        
+                        AndroidView(
+                            factory = { ctx ->
+                                preProvisionWebViewCache(ctx)
+                                WebView(ctx).apply {
+                                    layoutParams = ViewGroup.LayoutParams(
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                        ViewGroup.LayoutParams.MATCH_PARENT
+                                    )
+                                    val cookieManager = android.webkit.CookieManager.getInstance()
+                                    cookieManager.setAcceptCookie(true)
+                                    cookieManager.setAcceptThirdPartyCookies(this, true)
+                                    
+                                    settings.apply {
+                                        javaScriptEnabled = true
+                                        domStorageEnabled = true
+                                        databaseEnabled = true
+                                        cacheMode = WebSettings.LOAD_DEFAULT
+                                        loadWithOverviewMode = true
+                                        useWideViewPort = true
+                                        mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                                        javaScriptCanOpenWindowsAutomatically = true
+                                        allowFileAccess = true
+                                        allowContentAccess = true
+                                        userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Mobile Safari/537.36"
+                                    }
+                                    
+                                    webViewClient = object : WebViewClient() {
+                                        override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                                            preProvisionWebViewCache(ctx)
+                                            if (url != null && url.contains("accounts.google.com")) {
+                                                view?.settings?.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Mobile Safari/537.36"
+                                            }
+                                        }
+                                        
+                                        override fun onReceivedSslError(view: WebView?, handler: android.webkit.SslErrorHandler?, error: android.net.http.SslError?) {
+                                            handler?.proceed()
+                                        }
+
+                                        override fun shouldOverrideUrlLoading(view: WebView?, request: android.webkit.WebResourceRequest?): Boolean {
+                                            val u = request?.url?.toString() ?: return false
+                                            return handleCustomUrlSchemes(view, u)
+                                        }
+
+                                        @Suppress("DEPRECATION")
+                                        override fun shouldOverrideUrlLoading(view: WebView?, u: String?): Boolean {
+                                            if (u == null) return false
+                                            return handleCustomUrlSchemes(view, u)
+                                        }
+                                    }
+                                    
+                                    webChromeClient = object : android.webkit.WebChromeClient() {
+                                        override fun onCloseWindow(window: android.webkit.WebView?) {
+                                            popupMessageState = null
+                                        }
+                                    }
+                                    
+                                    val transport = popupMessageState?.obj as? WebView.WebViewTransport
+                                    if (transport != null) {
+                                        transport.webView = this
+                                        popupMessageState?.sendToTarget()
+                                    }
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun handleCustomUrlSchemes(view: android.webkit.WebView?, url: String): Boolean {
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+        return false // let WebView load standard web protocols
+    }
+    try {
+        val context = view?.context ?: return false
+        if (url.startsWith("intent://")) {
+            val intent = android.content.Intent.parseUri(url, android.content.Intent.URI_INTENT_SCHEME)
+            if (intent != null) {
+                // Try to resolve in-app or system app
+                val packageManager = context.packageManager
+                val info = packageManager.resolveActivity(intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+                if (info != null) {
+                    context.startActivity(intent)
+                    return true
+                } else {
+                    // Fallback to browser link if provided
+                    val fallbackUrl = intent.getStringExtra("browser_fallback_url")
+                    if (fallbackUrl != null) {
+                        view?.loadUrl(fallbackUrl)
+                        return true
+                    }
+                }
+            }
+        } else {
+            // General custom schemes like mailto:, tel:, whatsapp:, fbconnect:, etc.
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+            context.startActivity(intent)
+            return true
+        }
+    } catch (e: Exception) {
+        android.util.Log.e("WebViewApp", "Error handling custom url scheme: ${e.message}")
+    }
+    return true
+}
+
+private fun checkForUpdates(context: Context, onNewVersionAvailable: (UpdateInfo) -> Unit) {
+    kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+        try {
+            val remoteConfig = FirebaseRemoteConfig.getInstance()
+            val url = remoteConfig.getString("version_check_url").ifEmpty {
+                "https://raw.githubusercontent.com/arafatislam746672/rimonsports/main/version.json"
+            }
+
+            val client = OkHttpClient.Builder()
+                .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+
+            val request = Request.Builder().url(url).build()
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val bodyString = response.body?.string()
+                    if (bodyString != null) {
+                        val json = JSONObject(bodyString)
+                        val serverVersionCode = json.getInt("versionCode")
+                        val serverVersionName = json.getString("versionName")
+                        val downloadUrl = json.getString("downloadUrl")
+                        val releaseNotes = json.optString("releaseNotes", "New stability and performance improvements are available.")
+
+                        val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+                        val currentVersionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                            packageInfo.longVersionCode.toInt()
+                        } else {
+                            @Suppress("DEPRECATION")
+                            packageInfo.versionCode
+                        }
+
+                        if (serverVersionCode > currentVersionCode) {
+                            withContext(Dispatchers.Main) {
+                                onNewVersionAvailable(
+                                    UpdateInfo(
+                                        versionCode = serverVersionCode,
+                                        versionName = serverVersionName,
+                                        downloadUrl = downloadUrl,
+                                        releaseNotes = releaseNotes
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("WebViewApp", "Error checking for updates: ${e.message}")
+        }
+    }
+}
+
+@Composable
+fun RimonSportsSplashScreen(
+    appName: String = "RIMON SPORTS ACADEMY",
+    appLogoUrl: String = "",
+    onLogoLongPress: () -> Unit = {}
+) {
+    var startAnimation by remember { mutableStateOf(false) }
+    
+    // Scale animation of the logo
+    val scale by animateFloatAsState(
+        targetValue = if (startAnimation) 1f else 0.4f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "LogoScale"
+    )
+    
+    // Alpha animation of the logo and contents
+    val alpha by animateFloatAsState(
+        targetValue = if (startAnimation) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = 1000,
+            easing = FastOutSlowInEasing
+        ),
+        label = "LogoAlpha"
+    )
+
+    // Animated value for linear loading progress
+    val progressAnim by animateFloatAsState(
+        targetValue = if (startAnimation) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = 2200,
+            easing = LinearOutSlowInEasing
+        ),
+        label = "ProgressBarAlpha"
+    )
+
+    LaunchedEffect(Unit) {
+        startAnimation = true
+    }
+
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF0F2038), // Elegant Slate Navy
+                        Color(0xFF060D1A)  // Rich Deep Blue
+                    )
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        val maxHeightDp = maxHeight
+        val logoSize = if (maxHeightDp < 500.dp) 110.dp else 160.dp
+        val spacerAfterLogo = if (maxHeightDp < 500.dp) 16.dp else 32.dp
+        val spacerBeforeProgress = if (maxHeightDp < 500.dp) 24.dp else 48.dp
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .padding(24.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            // Logo card container with high-contrast glowing shadow border
+            Card(
+                modifier = Modifier
+                    .size(logoSize)
+                    .graphicsLayer(
+                        scaleX = scale,
+                        scaleY = scale,
+                        alpha = alpha
+                    )
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onLongPress = {
+                                onLogoLongPress()
+                            }
+                        )
+                    }
+                    .border(
+                        border = BorderStroke(
+                            width = 2.dp,
+                            brush = androidx.compose.ui.graphics.Brush.sweepGradient(
+                                colors = listOf(
+                                    Color(0xFFE53935), // Dark Red
+                                    Color(0xFF1E3C72), // Midnight Blue
+                                    Color(0xFFE53935)  // Dark Red
+                                )
+                            )
+                        ),
+                        shape = RoundedCornerShape(32.dp)
+                    ),
+                shape = RoundedCornerShape(32.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+            ) {
+                if (appLogoUrl.isNotEmpty()) {
+                    AsyncImage(
+                        model = appLogoUrl,
+                        contentDescription = "Dynamic App Logo",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(32.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_rimon_logo),
+                        contentDescription = "Rimon Sports Academy Logo",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(32.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(spacerAfterLogo))
+
+            // Academy Title
+            Text(
+                text = appName.ifEmpty { "RIMON SPORTS ACADEMY" }.uppercase(),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White,
+                modifier = Modifier.graphicsLayer(alpha = alpha)
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Subtitle
+            Text(
+                text = "G  A  B  T  O  L  A",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFFFCDD2), // light Crimson Red
+                modifier = Modifier.graphicsLayer(alpha = alpha)
+            )
+
+            Spacer(modifier = Modifier.height(spacerBeforeProgress))
+
+            // Custom elegant smooth horizontal progress line
+            Box(
+                modifier = Modifier
+                    .width(180.dp)
+                    .height(4.dp)
+                    .graphicsLayer(alpha = alpha)
+                    .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(100.dp))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(progressAnim)
+                        .background(
+                            androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color(0xFFE53935),
+                                    Color(0xFFFF5252)
+                                )
+                            ),
+                            shape = RoundedCornerShape(100.dp)
+                        )
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Text(
+                text = "Loading Arena...",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.5f),
+                modifier = Modifier.graphicsLayer(alpha = alpha)
+            )
+        }
+    }
+}
+
+private fun downloadAndInstallApk(
+    context: Context,
+    downloadUrl: String,
+    onProgress: (Float) -> Unit,
+    onComplete: () -> Unit,
+    onError: (String) -> Unit
+) {
+    kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+        try {
+            val client = okhttp3.OkHttpClient.Builder()
+                .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+
+            val request = okhttp3.Request.Builder().url(downloadUrl).build()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw java.io.IOException("Unexpected response code: ${response.code}")
+                }
+                
+                val body = response.body ?: throw java.io.IOException("Response body is empty")
+                val totalBytes = body.contentLength()
+                
+                // Save to app's cache directory
+                val apkFile = File(context.cacheDir, "rimon_sports_update.apk")
+                if (apkFile.exists()) {
+                    apkFile.delete()
+                }
+
+                val buffer = ByteArray(8192)
+                var bytesRead: Int
+                var totalBytesRead = 0L
+
+                body.byteStream().use { inputStream ->
+                    FileOutputStream(apkFile).use { outputStream ->
+                        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                            outputStream.write(buffer, 0, bytesRead)
+                            totalBytesRead += bytesRead
+                            if (totalBytes > 0) {
+                                val progress = totalBytesRead.toFloat() / totalBytes
+                                withContext(Dispatchers.Main) {
+                                    onProgress(progress)
+                                }
+                            }
+                        }
+                        outputStream.flush()
+                    }
+                }
+
+                // Verify file existence and size
+                if (!apkFile.exists() || apkFile.length() == 0L) {
+                    throw java.io.IOException("File download verification failed")
+                }
+
+                withContext(Dispatchers.Main) {
+                    onComplete()
+                    // Trigger install
+                    triggerInstall(context, apkFile)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("WebViewApp", "APK Download failed: ${e.message}")
+            withContext(Dispatchers.Main) {
+                onError(e.localizedMessage ?: "Unknown error occurred")
+            }
+        }
+    }
+}
+
+private fun triggerInstall(context: Context, apkFile: File) {
+    try {
+        val authority = "${context.packageName}.fileprovider"
+        val apkUri: Uri = FileProvider.getUriForFile(context, authority, apkFile)
+
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(apkUri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        Log.e("WebViewApp", "Failed to start install intent: ${e.message}")
+    }
+}
+
+fun isInsideMaintenanceWindow(startTimeStr: String, endTimeStr: String): Boolean {
+    if (startTimeStr.isEmpty() || endTimeStr.isEmpty()) return false
+    val formats = listOf(
+        java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()),
+        java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm", java.util.Locale.getDefault()),
+        java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+    )
+    val now = System.currentTimeMillis()
+    for (format in formats) {
+        try {
+            format.timeZone = java.util.TimeZone.getDefault()
+            val start = format.parse(startTimeStr)?.time ?: 0L
+            val end = format.parse(endTimeStr)?.time ?: 0L
+            if (start > 0 && end > 0 && now in start..end) {
+                return true
+            }
+        } catch (e: Exception) {
+            // Try next format
+        }
+    }
+    // Fallback: If numeric milliseconds represent UNIX epoch
+    try {
+        val start = startTimeStr.toLong()
+        val end = endTimeStr.toLong()
+        if (start > 0 && end > 0 && now in start..end) {
+            return true
+        }
+    } catch (e: Exception) {}
+    
+    return false
+}
+
+fun isNightTime(): Boolean {
+    val calendar = java.util.Calendar.getInstance()
+    val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+    return hour >= 20 || hour < 6 // Night-time (8 PM to 6 AM)
+}
+
+fun isNetworkAvailable(context: Context): Boolean {
+    val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+        ?: return true // If system service is not available, assume online rather than blocking!
+
+    // Modern check
+    val activeNetwork = connectivityManager.activeNetwork
+    if (activeNetwork != null) {
+        val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
+        if (capabilities != null) {
+            val hasInternet = capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            val hasValidated = capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            val hasTransport = capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) ||
+                    capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                    capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) ||
+                    capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)
+            
+            if (hasInternet || hasValidated || hasTransport) {
+                return true
+            }
+        }
+    }
+
+    // Checking all networks as fallback
+    val allNetworks = connectivityManager.allNetworks
+    if (allNetworks.isNotEmpty()) {
+        for (network in allNetworks) {
+            val capabilities = connectivityManager.getNetworkCapabilities(network)
+            if (capabilities != null) {
+                val hasInternet = capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                val hasTransport = capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) ||
+                        capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                        capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) ||
+                        capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)
+                if (hasInternet || hasTransport) {
+                    return true
+                }
+            }
+        }
+    }
+
+    // Deprecated fallback checking (extremely reliable on actual devices)
+    @Suppress("DEPRECATION")
+    val activeNetworkInfo = connectivityManager.activeNetworkInfo
+    if (activeNetworkInfo != null && activeNetworkInfo.isConnected) {
+        return true
+    }
+
+    return false
+}
+
+@Composable
+fun rememberConnectivityState(context: Context, refreshTrigger: Int): State<Boolean> {
+    val connectivityManager = remember(context) {
+        context.getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+    }
+    return produceState(initialValue = isNetworkAvailable(context), keys = arrayOf(context, refreshTrigger)) {
+        // Run an active check right away
+        value = isNetworkAvailable(context)
+        
+        if (connectivityManager == null) {
+            value = true
+            return@produceState
+        }
+        
+        val callback = object : android.net.ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: android.net.Network) {
+                value = true
+            }
+            override fun onLost(network: android.net.Network) {
+                value = isNetworkAvailable(context)
+            }
+            override fun onCapabilitiesChanged(network: android.net.Network, capabilities: android.net.NetworkCapabilities) {
+                value = isNetworkAvailable(context)
+            }
+        }
+        
+        try {
+            connectivityManager.registerDefaultNetworkCallback(callback)
+        } catch (e: Exception) {
+            try {
+                val request = android.net.NetworkRequest.Builder()
+                    .addCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .build()
+                connectivityManager.registerNetworkCallback(request, callback)
+            } catch (ex: Exception) {
+                value = true
+            }
+        }
+        
+        awaitDispose {
+            try {
+                connectivityManager.unregisterNetworkCallback(callback)
+            } catch (e: Exception) {
+                // Ignore
+            }
+        }
+    }
+}
+
+@Composable
+fun LottieAnimationContainer(
+    url: String,
+    modifier: Modifier = Modifier,
+    fallback: @Composable () -> Unit
+) {
+    val compositionResult = rememberLottieComposition(
+        LottieCompositionSpec.Url(url)
+    )
+    val composition = compositionResult.value
+    if (composition != null) {
+        val progress by animateLottieCompositionAsState(
+            composition = composition,
+            iterations = LottieConstants.IterateForever
+        )
+        LottieAnimation(
+            composition = composition,
+            progress = { progress },
+            modifier = modifier
+        )
+    } else {
+        fallback()
+    }
+}
+
+@Composable
+fun SleepyMoonFallback(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "sleepy_moon")
+    
+    val moonRotation by infiniteTransition.animateFloat(
+        initialValue = -10f,
+        targetValue = 10f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "moon_rotation"
+    )
+
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.5f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "glow_alpha"
+    )
+
+    Box(
+        modifier = modifier.size(160.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+            val centerOffset = androidx.compose.ui.geometry.Offset(size.width / 2f, size.height / 2f)
+            val radius = size.minDimension / 3.0f
+
+            drawCircle(
+                color = Color.White.copy(alpha = glowAlpha * 0.4f),
+                radius = 4f,
+                center = androidx.compose.ui.geometry.Offset(centerOffset.x - radius * 1.2f, centerOffset.y - radius * 0.7f)
+            )
+            drawCircle(
+                color = Color.White.copy(alpha = (1f - glowAlpha) * 0.4f),
+                radius = 3f,
+                center = androidx.compose.ui.geometry.Offset(centerOffset.x + radius * 0.9f, centerOffset.y - radius * 1.1f)
+            )
+            drawCircle(
+                color = Color.White.copy(alpha = glowAlpha * 0.6f),
+                radius = 5f,
+                center = androidx.compose.ui.geometry.Offset(centerOffset.x + radius * 1.1f, centerOffset.y + radius * 0.6f)
+            )
+
+            rotate(degrees = moonRotation, pivot = centerOffset) {
+                drawCircle(
+                    brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFFFFEB3B).copy(alpha = glowAlpha * 0.3f),
+                            Color.Transparent
+                        ),
+                        center = centerOffset,
+                        radius = radius * 1.4f
+                    ),
+                    radius = radius * 1.4f,
+                    center = centerOffset
+                )
+
+                val path = androidx.compose.ui.graphics.Path().apply {
+                    addArc(
+                        oval = androidx.compose.ui.geometry.Rect(
+                            centerOffset.x - radius,
+                            centerOffset.y - radius,
+                            centerOffset.x + radius,
+                            centerOffset.y + radius
+                        ),
+                        startAngleDegrees = -90f,
+                        sweepAngleDegrees = 200f
+                    )
+                    addArc(
+                        oval = androidx.compose.ui.geometry.Rect(
+                            centerOffset.x - radius * 0.6f,
+                            centerOffset.y - radius,
+                            centerOffset.x + radius * 1.2f,
+                            centerOffset.y + radius
+                        ),
+                        startAngleDegrees = -90f,
+                        sweepAngleDegrees = 200f
+                    )
+                }
+                drawPath(
+                    path = path,
+                    color = Color(0xFFFFD54F)
+                )
+
+                drawArc(
+                    color = Color(0xFF5D4037),
+                    startAngle = 10f,
+                    sweepAngle = 160f,
+                    useCenter = false,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = 4f,
+                        cap = androidx.compose.ui.graphics.StrokeCap.Round
+                    ),
+                    size = androidx.compose.ui.geometry.Size(32f, 32f),
+                    topLeft = androidx.compose.ui.geometry.Offset(centerOffset.x - 8f, centerOffset.y - 12f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun LoadingGearFallback(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "loading_gear")
+    
+    val gearRotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(6000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "gear_rotation"
+    )
+
+    Box(
+        modifier = modifier.size(160.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+            val centerOffset = androidx.compose.ui.geometry.Offset(size.width / 2f, size.height / 2f)
+            val radius = size.minDimension / 4.0f
+
+            rotate(degrees = gearRotation, pivot = centerOffset) {
+                drawCircle(
+                    color = Color(0xFF78909C),
+                    radius = radius,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 16f),
+                    center = centerOffset
+                )
+
+                for (i in 0 until 8) {
+                    val angle = (i * 45).toDouble()
+                    val radian = Math.toRadians(angle)
+                    val startX = centerOffset.x + (radius - 10f) * Math.cos(radian).toFloat()
+                    val startY = centerOffset.y + (radius - 10f) * Math.sin(radian).toFloat()
+                    val endX = centerOffset.x + (radius + 20f) * Math.cos(radian).toFloat()
+                    val endY = centerOffset.y + (radius + 20f) * Math.sin(radian).toFloat()
+                    
+                    drawLine(
+                        color = Color(0xFF78909C),
+                        start = androidx.compose.ui.geometry.Offset(startX, startY),
+                        end = androidx.compose.ui.geometry.Offset(endX, endY),
+                        strokeWidth = 20f,
+                        cap = androidx.compose.ui.graphics.StrokeCap.Round
+                    )
+                }
+
+                drawCircle(
+                    color = Color(0xFF546E7A),
+                    radius = radius * 0.4f,
+                    center = centerOffset
+                )
+                drawCircle(
+                    color = Color(0xFFECEFF1),
+                    radius = radius * 0.15f,
+                    center = centerOffset
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun MaintenanceScreen(
+    endTime: String = "",
+    isNight: Boolean = false,
+    isOffline: Boolean = false,
+    onRetry: (() -> Unit)? = null,
+    onProceedAnyway: (() -> Unit)? = null
+) {
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val screenHeightDp = configuration.screenHeightDp
+    val lottieSize = if (screenHeightDp < 500) 120.dp else 200.dp
+
+    val titleText = if (isOffline) {
+        "Connectivity Alert"
+    } else {
+        "Scheduled Maintenance"
+    }
+
+    val messageText = if (isOffline) {
+        "It seems there is a power cut or network issue. Please check back later."
+    } else {
+        "We are currently performing maintenance. We will be back by ${endTime.ifEmpty { "soon" }}."
+    }
+
+    val animationUrl = if (isNight) {
+        "https://lottie.host/e474cbdb-5a1e-450f-bb7e-fca826e7ae3d/I9X6H97e3F.json"
+    } else {
+        "https://lottie.host/9e49ab3d-b4b0-4dbb-a5d6-d08b3ba96ac4/H40PqL0g4u.json"
+    }
+
+    val backgroundBrush = if (isNight) {
+        androidx.compose.ui.graphics.Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF030914),
+                Color(0xFF010307)
+            )
+        )
+    } else {
+        androidx.compose.ui.graphics.Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFFE8F0FE),
+                Color(0xFFF1F3F4)
+            )
+        )
+    }
+
+    val contentColor = if (isNight) Color.White else Color(0xFF202124)
+    val secondaryColor = if (isNight) Color(0xFF9EAECA) else Color(0xFF5F6368)
+    val cardBg = if (isNight) Color(0xFF0B132B) else Color.White
+    val cardBorder = if (isNight) Color(0xFF1C2541) else Color(0xFFDADCE0)
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(backgroundBrush),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = 24.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(lottieSize)
+                    .padding(8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                LottieAnimationContainer(
+                    url = animationUrl,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    if (isNight) {
+                        SleepyMoonFallback(modifier = Modifier.fillMaxSize())
+                    } else {
+                        LoadingGearFallback(modifier = Modifier.fillMaxSize())
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = cardBg),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                border = BorderStroke(1.dp, cardBorder),
+                shape = RoundedCornerShape(24.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = if (isOffline) Icons.Default.Warning else Icons.Default.Settings,
+                        contentDescription = "Status Icon",
+                        tint = if (isNight) Color(0xFFF1C40F) else Color(0xFF1A73E8),
+                        modifier = Modifier.size(40.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = titleText,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = contentColor,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = messageText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = secondaryColor,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.25f
+                    )
+
+                    if (isOffline && onRetry != null && onProceedAnyway != null) {
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
+                        ) {
+                            androidx.compose.material3.OutlinedButton(
+                                onClick = onRetry,
+                                modifier = Modifier.weight(1f),
+                                border = BorderStroke(1.dp, cardBorder.copy(alpha = 0.8f)),
+                                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                                    contentColor = contentColor
+                                )
+                            ) {
+                                Text("Check Again", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                            }
+                            androidx.compose.material3.Button(
+                                onClick = onProceedAnyway,
+                                modifier = Modifier.weight(1f),
+                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                    containerColor = if (isNight) Color(0xFF1E3A8A) else Color(0xFF1A73E8),
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Text("Load Anyway", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Text(
+                text = "RIMON SPORTS ACADEMY PORTAL",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = secondaryColor
+            )
+        }
+    }
+}
+
+
