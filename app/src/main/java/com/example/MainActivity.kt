@@ -1139,7 +1139,7 @@ private fun checkForUpdates(context: Context, onNewVersionAvailable: (UpdateInfo
         try {
             val remoteConfig = FirebaseRemoteConfig.getInstance()
             val url = remoteConfig.getString("version_check_url").ifEmpty {
-                "https://raw.githubusercontent.com/arafatislam746672/rimonsports/main/version.json"
+                "https://raw.githubusercontent.com/tamimaakter74666/RSA-APPS/main/version.json"
             }
 
             val client = OkHttpClient.Builder()
