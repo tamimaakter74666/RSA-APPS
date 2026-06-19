@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
+<html lang="bn" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rimon Sports - Premium Sports Streaming Portal</title>
+    <title>রিমন স্পোর্টস - লাইভ স্পোর্টস স্ট্রিমিং পোর্টাল</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -22,27 +22,26 @@
                         }
                     },
                     fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
+                        sans: ['Inter', 'Hind Siliguri', 'sans-serif'],
                         mono: ['JetBrains Mono', 'monospace'],
                     },
                     boxShadow: {
-                        'neon-brand': '0 0 15px rgba(229, 57, 53, 0.4)',
-                        'neon-glow': '0 0 25px rgba(229, 57, 53, 0.25)',
+                        'neon-brand': '0 0 20px rgba(229, 57, 53, 0.45)',
+                        'neon-glow': '0 0 30px rgba(229, 57, 53, 0.25)',
                     }
                 }
             }
         }
     </script>
-    <!-- Google Fonts -->
+    <!-- Google Fonts including Hind Siliguri for beautiful Bengali typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <!-- Lottie Player Script -->
     <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
-    <!-- Style adjustments for smooth toggle -->
     <style>
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Hind Siliguri', 'Inter', sans-serif;
             transition: background-color 0.3s ease, color 0.3s ease;
         }
         .glass-header {
@@ -53,8 +52,8 @@
 </head>
 <body class="bg-gray-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen">
 
-    <!-- Top Glow Effect (Dark Mode only) -->
-    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[450px] bg-gradient-to-b from-red-600/10 via-sky-600/5 to-transparent blur-3xl pointer-events-none -z-10"></div>
+    <!-- Top Glow Gradient Background (Responsive) -->
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[400px] bg-gradient-to-b from-red-600/10 via-sky-600/5 to-transparent blur-3xl pointer-events-none -z-10"></div>
 
     <!-- Navigation Header -->
     <header class="sticky top-0 z-50 w-full border-b border-gray-200/80 dark:border-slate-800/80 glass-header bg-white/70 dark:bg-slate-950/70 transition-colors duration-300">
@@ -67,20 +66,20 @@
                     </svg>
                 </div>
                 <div>
-                    <span class="text-lg font-bold tracking-tight bg-gradient-to-r from-brand-crimson to-amber-500 dark:to-orange-400 bg-clip-text text-transparent">RIMON SPORTS</span>
-                    <span class="block text-[10px] uppercase tracking-widest text-slate-500 font-semibold leading-none">Academy Portal</span>
+                    <span class="text-base sm:text-lg font-bold tracking-tight bg-gradient-to-r from-brand-crimson to-amber-500 dark:to-orange-400 bg-clip-text text-transparent">RIMON SPORTS</span>
+                    <span class="block text-[10px] uppercase tracking-wider text-slate-500 font-semibold leading-none">রিমন স্পোর্টস পোর্টাল</span>
                 </div>
             </div>
 
             <!-- Header Controls -->
-            <div class="flex items-center space-x-4">
-                <a href="#install-guide" class="hidden sm:inline-flex text-sm font-medium text-slate-600 hover:text-brand-crimson dark:text-slate-400 dark:hover:text-amber-400 transition">Install Guide</a>
-                <a href="#whats-new" class="hidden sm:inline-flex text-sm font-medium text-slate-600 hover:text-brand-crimson dark:text-slate-400 dark:hover:text-amber-400 transition">Changelog</a>
+            <div class="flex items-center space-x-3 sm:space-x-4 text-xs sm:text-sm">
+                <a href="#install-guide" class="text-slate-600 hover:text-brand-crimson dark:text-slate-400 dark:hover:text-amber-400 transition font-semibold">নির্দেশিকা</a>
+                <a href="#whats-new" class="text-slate-600 hover:text-brand-crimson dark:text-slate-400 dark:hover:text-amber-400 transition font-semibold">আপডেট</a>
                 
                 <!-- Theme Toggle Button -->
-                <button id="theme-toggle" aria-label="Toggle Light/Dark Theme" class="p-2.5 rounded-xl border border-gray-200 hover:bg-gray-100 dark:border-slate-800 dark:hover:bg-slate-900 transition-all text-slate-500 dark:text-slate-400">
+                <button id="theme-toggle" aria-label="Toggle Light/Dark Theme" class="p-2 rounded-xl border border-gray-200 hover:bg-gray-100 dark:border-slate-800 dark:hover:bg-slate-900 transition-all text-slate-500 dark:text-slate-400">
                     <!-- Sun Icon (active in dark, hidden in light) -->
-                    <svg id="sun-icon" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <svg id="sun-icon" class="w-4 sm:w-5 h-4 sm:h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="5"></circle>
                         <line x1="12" y1="1" x2="12" y2="3"></line>
                         <line x1="12" y1="21" x2="12" y2="23"></line>
@@ -92,7 +91,7 @@
                         <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
                     </svg>
                     <!-- Moon Icon (active in light, hidden in dark) -->
-                    <svg id="moon-icon" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <svg id="moon-icon" class="w-4 sm:w-5 h-4 sm:h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
                     </svg>
                 </button>
@@ -100,103 +99,101 @@
         </div>
     </header>
 
-    <main class="max-w-4xl mx-auto px-4 sm:px-6 py-12 space-y-16">
+    <main class="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-12 sm:space-y-16">
 
         <!-- Hero Section -->
-        <section class="text-center space-y-8 py-4">
+        <section class="text-center space-y-6 sm:space-y-8 py-2 sm:py-4">
             <!-- Badge -->
-            <div class="inline-flex items-center space-x-2 bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-500/20 px-3.5 py-1.5 rounded-full text-brand-crimson dark:text-orange-400 font-semibold text-xs tracking-wide">
-                <svg class="w-3.5 h-3.5 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
+            <div class="inline-flex items-center space-x-2 bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-500/20 px-3 py-1 rounded-full text-brand-crimson dark:text-orange-400 font-semibold text-xs tracking-wide">
+                <svg class="w-3 h-3 animate-pulse text-brand-crimson dark:text-orange-400" fill="currentColor" viewBox="0 0 20 20">
                     <circle cx="10" cy="10" r="10" />
                 </svg>
-                <span>OFFICIAL DISCHARGE WEB Portal</span>
+                <span>অফিসিয়াল ডাউনলোড ও রিলিজ পোর্টাল</span>
             </div>
 
             <!-- Title -->
-            <div class="space-y-4">
-                <h1 class="text-4xl sm:text-5xl font-black tracking-tight leading-tight">
-                    Premium Sports Streams <br class="hidden sm:inline">
-                    <span class="bg-gradient-to-r from-brand-crimson via-orange-500 to-amber-500 dark:from-red-500 dark:via-rose-400 dark:to-orange-400 bg-clip-text text-transparent">Directly on Your Android Device</span>
+            <div class="space-y-3 sm:space-y-4">
+                <h1 class="text-3xl sm:text-5xl font-black tracking-tight leading-tight px-2">
+                    লাইভ এইচডি স্পোর্টস স্ট্রিমিং <br class="hidden sm:inline">
+                    <span class="bg-gradient-to-r from-brand-crimson via-orange-500 to-amber-500 dark:from-red-500 dark:via-rose-400 dark:to-orange-400 bg-clip-text text-transparent">সরাসরি আপনার মোবাইলে</span>
                 </h1>
-                <p class="max-w-xl mx-auto text-slate-600 dark:text-slate-400 text-base sm:text-lg font-normal leading-relaxed">
-                    Watch HD live streams and get instant live scores for standard networks completely free of cost. Fast caching engines, low latency, and robust playback buffers.
+                <p class="max-w-xl mx-auto text-slate-600 dark:text-slate-400 text-sm sm:text-base px-4 leading-relaxed">
+                    কোনো বাফারিং বা ঝামেলা ছাড়াই সম্পূর্ণ ফ্রিতে দেশ-বিদেশের যেকোনো লাইভ খেলা উপভোগ করুন। আমাদের দ্রুতগতির ক্যাশিং প্রযুক্তি দেবে আপনাকে নিরবচ্ছিন্ন সংযোগ ও দুর্দান্ত লাইভ স্কোর রিয়েল-টাইমে।
                 </p>
             </div>
 
             <!-- Dynamic Version Block & Download Button Container -->
-            <div class="max-w-md mx-auto p-6 sm:p-8 rounded-3xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xl shadow-slate-200/50 dark:shadow-none backdrop-blur-md transition-all duration-300">
+            <div class="max-w-sm sm:max-w-md mx-auto p-5 sm:p-8 rounded-3xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xl shadow-slate-200/50 dark:shadow-none backdrop-blur-md transition-all duration-300">
                 
                 <!-- Direct Download Trigger -->
-                <a id="apk-download-btn" href="https://github.com/arafatislam746672/rimonsports/releases" class="relative group overflow-hidden block w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-brand-crimson to-orange-500 hover:from-amber-500 hover:to-brand-crimson text-white font-bold text-lg text-center transition-all duration-300 transform active:scale-95 shadow-md shadow-brand-crimson/20 dark:shadow-neon-brand hover:shadow-brand-crimson/40">
+                <a id="apk-download-btn" href="https://github.com/arafatislam746672/rimonsports/releases/latest/download/app-debug.apk" class="relative group overflow-hidden block w-full py-3.5 sm:py-4 px-5 rounded-2xl bg-gradient-to-r from-brand-crimson to-orange-500 hover:from-amber-500 hover:to-brand-crimson text-white font-bold text-base sm:text-lg text-center transition-all duration-300 transform active:scale-95 shadow-md shadow-brand-crimson/20 dark:shadow-neon-brand hover:shadow-brand-crimson/40">
                     <!-- Glow Sweep Animation -->
                     <span class="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></span>
-                    <span class="flex items-center justify-center space-x-3">
-                        <svg class="w-6 h-6 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <span class="flex items-center justify-center space-x-2 sm:space-x-3">
+                        <svg class="w-5 sm:w-6 h-5 sm:h-6 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
-                        <span>Download APK Direct</span>
+                        <span>ডাউনলোড করুন (APK ফাইল সরাসরি)</span>
                     </span>
                 </a>
 
                 <!-- Meta Specs -->
-                <div class="mt-4 flex items-center justify-center space-x-4 text-xs font-mono text-slate-500 dark:text-slate-400">
+                <div class="mt-4 flex items-center justify-center space-x-3 text-xs font-mono text-slate-500 dark:text-slate-400">
                     <span class="flex items-center space-x-1">
-                        <svg class="w-3.5 h-3.5 text-brand-crimson dark:text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <svg class="w-3.5 h-3.5 text-brand-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.1">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                         </svg>
-                        <span id="label-verified">Verified Safe</span>
+                        <span id="label-verified" class="font-semibold text-brand-emerald">নিরাপদ ফাইল</span>
                     </span>
                     <span>•</span>
-                    <span id="label-size">File Size: ~15 MB</span>
+                    <span id="label-size">সাইজ: ~১৫ এমবি</span>
                     <span>•</span>
-                    <span id="label-vername">Ver: v1.0.0</span>
+                    <span id="label-vername">ভার্সন: v1.2.0</span>
                 </div>
 
                 <!-- Verified Badges -->
-                <div class="mt-6 pt-6 border-t border-gray-100 dark:border-slate-800 flex items-center justify-around text-[11px] text-slate-500 font-medium">
+                <div class="mt-6 pt-5 border-t border-gray-150 dark:border-slate-800 grid grid-cols-3 gap-2 text-[10px] sm:text-[11px] text-slate-500 font-medium">
                     <div class="flex flex-col items-center">
-                        <span class="text-brand-emerald text-lg">✓</span>
-                        <span>Multi-Scan Verified</span>
+                        <span class="text-brand-emerald text-base sm:text-lg font-bold">✓</span>
+                        <span>অটো-স্ক্যান করা</span>
                     </div>
                     <div class="flex flex-col items-center">
-                        <span class="text-brand-sky text-lg">🛡️</span>
-                        <span>No Intrusive Ads</span>
+                        <span class="text-brand-sky text-base sm:text-lg">🛡️</span>
+                        <span>ধীরগতি থাকবে না</span>
                     </div>
                     <div class="flex flex-col items-center">
-                        <span class="text-amber-500 text-lg">⚡</span>
-                        <span>Zero Trackers</span>
+                        <span class="text-amber-500 text-base sm:text-lg">⚡</span>
+                        <span>১০০% প্রিমিয়াম</span>
                     </div>
                 </div>
             </div>
         </section>
 
         <!-- Version Info / "What's New" Section -->
-        <section id="whats-new" class="space-y-6">
+        <section id="whats-new" class="space-y-4 px-2">
             <div class="flex items-center space-x-3 border-b border-gray-200 dark:border-slate-800 pb-2">
-                <svg class="w-5.5 h-5.5 text-brand-crimson dark:text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <svg class="w-5 h-5 text-brand-crimson dark:text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <h2 class="text-xl font-bold tracking-tight">What's New & Version Details</h2>
+                <h2 class="text-lg sm:text-xl font-bold tracking-tight">নতুন আপডেটে যা থাকছে (রিলিজ নোটস)</h2>
             </div>
 
-            <div class="p-6 sm:p-8 rounded-3xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 relative overflow-hidden">
-                <!-- Decorative background elements -->
+            <div class="p-5 sm:p-8 rounded-3xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 relative overflow-hidden">
                 <div class="absolute right-0 top-0 w-32 h-32 bg-orange-500/5 rounded-full blur-2xl pointer-events-none"></div>
 
-                <div class="flex flex-col md:flex-row md:items-start justify-between gap-6">
+                <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
                     <div class="space-y-3 flex-1">
                         <div class="flex items-center space-x-2.5">
-                            <span class="text-xs font-mono font-bold bg-brand-crimson/10 text-brand-crimson dark:bg-orange-500/15 dark:text-orange-400 px-2.5 py-1 rounded-md" id="changelog-version">v1.2.0</span>
-                            <span class="text-xs text-slate-500 font-medium" id="changelog-date">Released Recently</span>
+                            <span class="text-xs font-mono font-bold bg-brand-crimson/10 text-brand-crimson dark:bg-orange-500/15 dark:text-orange-400 px-2 py-0.5 rounded-md" id="changelog-version">v1.2.0</span>
+                            <span class="text-xs text-slate-500 font-medium" id="changelog-date">সাম্প্রতিক আপডেট</span>
                         </div>
-                        <h3 class="font-bold text-lg text-slate-800 dark:text-slate-200">Stability & Media Delivery Overhaul</h3>
-                        <div id="changelog-notes" class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed space-y-2">
-                            <p>Here are the latest stability patches:</p>
+                        <h3 class="font-bold text-base sm:text-lg text-slate-800 dark:text-slate-200">নিরাপত্তা, নির্ভরযোগ্যতা ও সহজে স্ট্রিমিং ওভারহল</h3>
+                        <div id="changelog-notes" class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                             <ul class="list-disc pl-5 space-y-1.5 font-medium">
-                                <li>Dynamically resolves Chromium file cache failures programmatically over responsive loops.</li>
-                                <li>Custom browser configuration to support Google Login autofill, bypass and redirects seamlessly.</li>
-                                <li>High-speed video caching architecture with dynamic memory checks on boot.</li>
-                                <li>Responsive Material 3 Bento layouts targeting Compact, Medium, and Expanded viewports.</li>
+                                <li><strong>ক্যাশিং সমস্যর সমাধান:</strong> অ্যাপের ভিতরের ওয়েবভিউ বাফার লোডিং এবং ক্র্যাশ সমস্যার সমাধান করা হয়েছে।</li>
+                                <li><strong>কনফিগারেশন রিলোড:</strong> লাইভ ম্যাচ সোর্স পরিবর্তন বা আপগ্রেড হলে দ্রুত ব্যাকআপ লিংক লোড করার ব্যবস্থা।</li>
+                                <li><strong>গুগল সাইন-ইন ট্র্যাকিং:</strong> ধীরগতির রানিং কোড ও অ্যাকাউন্ট লগইন ইন্টিগ্রেশন সহজীকরণ।</li>
+                                <li><strong>অ্যাডেপ্টিভ বেন্টো ডিজাইন:</strong> ছোট মোবাইল এবং ট্যাবলেট স্ক্রিনের জন্য চমৎকার ইউজার ইন্টারফেস।</li>
                             </ul>
                         </div>
                     </div>
@@ -205,86 +202,86 @@
         </section>
 
         <!-- Structured visual "User Installation Guide" -->
-        <section id="install-guide" class="space-y-8">
+        <section id="install-guide" class="space-y-6 px-2">
             <div class="flex items-center space-x-3 border-b border-gray-200 dark:border-slate-800 pb-2">
-                <svg class="w-5.5 h-5.5 text-brand-crimson dark:text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <svg class="w-5 h-5 text-brand-crimson dark:text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
-                <h2 class="text-xl font-bold tracking-tight">How to Install App (Step-by-Step)</h2>
+                <h2 class="text-lg sm:text-xl font-bold tracking-tight">কীভাবে ইন্সটল করবেন? (সহজ ৪টি ধাপ)</h2>
             </div>
 
             <!-- Tab / Cards Architecture -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
 
                 <!-- Step 1 -->
-                <div class="p-6 rounded-3xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 flex flex-col justify-between hover:border-red-500/30 dark:hover:border-red-500/30 transition duration-300">
-                    <div class="space-y-4">
+                <div class="p-5 sm:p-6 rounded-3xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 flex flex-col justify-between hover:border-red-500/30 dark:hover:border-red-500/30 transition duration-300">
+                    <div class="space-y-3">
                         <div class="flex items-center justify-between">
-                            <span class="w-9 h-9 rounded-xl bg-brand-crimson/15 text-brand-crimson dark:bg-red-500/20 dark:text-red-400 font-bold text-sm font-mono flex items-center justify-center">01</span>
-                            <span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">First Step</span>
+                            <span class="w-8 sm:w-9 h-8 sm:h-9 rounded-xl bg-brand-crimson/15 text-brand-crimson dark:bg-red-500/20 dark:text-red-400 font-bold text-xs sm:text-sm font-mono flex items-center justify-center">০১</span>
+                            <span class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">প্রথম ধাপ</span>
                         </div>
-                        <h3 class="font-bold text-slate-800 dark:text-slate-100 text-base">Click & Download</h3>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
-                            Click on the <strong class="text-brand-crimson dark:text-orange-400">Download APK</strong> button. The installation file package starts downloading immediately onto your browser storage securely.
+                        <h3 class="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base">ডাউনলোডে চাপুন</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-normal">
+                            উপরে অবস্থিত <strong class="text-brand-crimson dark:text-orange-400">ডাউনলোড APK</strong> বাটনে ক্লিক করুন। সাথে সাথে আপনার ব্রাউজারে নিরাপদ ডাউনলোড শুরু হয়ে যাবে।
                         </p>
                     </div>
                     <!-- Lottie visualization for Step 1 -->
-                    <div class="mt-6 h-36 flex items-center justify-center bg-gray-50/50 dark:bg-slate-950/40 rounded-2xl overflow-hidden border border-gray-100/50 dark:border-slate-900">
-                        <lottie-player src="https://assets5.lottiefiles.com/packages/lf20_0yfsb3a1.json" background="transparent" speed="1" class="w-24 h-24" loop autocomplete="on" autoplay></lottie-player>
+                    <div class="mt-4 h-32 flex items-center justify-center bg-gray-50/50 dark:bg-slate-950/40 rounded-2xl overflow-hidden border border-gray-100/50 dark:border-slate-900">
+                        <lottie-player src="https://assets5.lottiefiles.com/packages/lf20_0yfsb3a1.json" background="transparent" speed="1" class="w-20 h-20" loop autocomplete="on" autoplay></lottie-player>
                     </div>
                 </div>
 
                 <!-- Step 2 -->
-                <div class="p-6 rounded-3xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 flex flex-col justify-between hover:border-red-500/30 dark:hover:border-red-500/30 transition duration-300">
-                    <div class="space-y-4">
+                <div class="p-5 sm:p-6 rounded-3xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 flex flex-col justify-between hover:border-red-500/30 dark:hover:border-red-500/30 transition duration-300">
+                    <div class="space-y-3">
                         <div class="flex items-center justify-between">
-                            <span class="w-9 h-9 rounded-xl bg-brand-crimson/15 text-brand-crimson dark:bg-red-500/20 dark:text-red-400 font-bold text-sm font-mono flex items-center justify-center">02</span>
-                            <span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Permission</span>
+                            <span class="w-8 sm:w-9 h-8 sm:h-9 rounded-xl bg-brand-crimson/15 text-brand-crimson dark:bg-red-500/20 dark:text-red-400 font-bold text-xs sm:text-sm font-mono flex items-center justify-center">০২</span>
+                            <span class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">অনুমতি দিন</span>
                         </div>
-                        <h3 class="font-bold text-slate-800 dark:text-slate-100 text-base">Allow Safe Sources</h3>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
-                            If Android displays a security request, open your browser settings or tap <strong>Install Unknown Apps</strong> and toggle <strong>Permission "ON"</strong>. This is 100% safe as we compile directly from Github.
+                        <h3 class="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base">Unknown Sources অন করুন</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-normal">
+                            যদি আপনার ফোনে সিকিউরিটি প্রম্পট আসে, তবে সেটিংস থেকে <strong>"Allow from this source"</strong> অন করুন। অ্যাপটি সরাসরি অফিশিয়াল সোর্স থেকে বিল্ড হওয়াতে এটি সম্পূর্ণ নিরাপদ।
                         </p>
                     </div>
                     <!-- Lottie visualization for Step 2 -->
-                    <div class="mt-6 h-36 flex items-center justify-center bg-gray-50/50 dark:bg-slate-950/40 rounded-2xl overflow-hidden border border-gray-100/50 dark:border-slate-900">
-                        <lottie-player src="https://assets1.lottiefiles.com/packages/lf20_ghp9zvky.json" background="transparent" speed="1" class="w-24 h-24" loop autocomplete="on" autoplay></lottie-player>
+                    <div class="mt-4 h-32 flex items-center justify-center bg-gray-50/50 dark:bg-slate-950/40 rounded-2xl overflow-hidden border border-gray-100/50 dark:border-slate-900">
+                        <lottie-player src="https://assets1.lottiefiles.com/packages/lf20_ghp9zvky.json" background="transparent" speed="1" class="w-20 h-20" loop autocomplete="on" autoplay></lottie-player>
                     </div>
                 </div>
 
                 <!-- Step 3 -->
-                <div class="p-6 rounded-3xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 flex flex-col justify-between hover:border-red-500/30 dark:hover:border-red-500/30 transition duration-300">
-                    <div class="space-y-4">
+                <div class="p-5 sm:p-6 rounded-3xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 flex flex-col justify-between hover:border-red-500/30 dark:hover:border-red-500/30 transition duration-300">
+                    <div class="space-y-3">
                         <div class="flex items-center justify-between">
-                            <span class="w-9 h-9 rounded-xl bg-brand-crimson/15 text-brand-crimson dark:bg-red-500/20 dark:text-red-400 font-bold text-sm font-mono flex items-center justify-center">03</span>
-                            <span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Package Installer</span>
+                            <span class="w-8 sm:w-9 h-8 sm:h-9 rounded-xl bg-brand-crimson/15 text-brand-crimson dark:bg-red-500/20 dark:text-red-400 font-bold text-xs sm:text-sm font-mono flex items-center justify-center">০৩</span>
+                            <span class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">ইনস্টলেশন</span>
                         </div>
-                        <h3 class="font-bold text-slate-800 dark:text-slate-100 text-base">Tap to Install</h3>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
-                            Locate the finished download on your system status bar, or open your Files App and tap onto <code class="font-mono bg-gray-100 dark:bg-slate-850 px-1 py-0.5 rounded text-[10px]">rimon_sports.apk</code>, then click **Install**.
+                        <h3 class="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base">ট্যাপ করে ইনস্টল করুন</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-normal">
+                            ডাউনলোড শেষ হলে ফাইলরিসিভ নোটিফিকেশন অথবা আপনার ফাইল ম্যানেজারের ডাউনলোড ফোল্ডারে থাকা <code class="font-mono bg-gray-100 dark:bg-slate-800 px-1 py-0.5 rounded text-[10px]">rimon_sports.apk</code> ফাইলটিতে ক্লিক করে **Install** বাটন ট্যাপ করুন।
                         </p>
                     </div>
                     <!-- Lottie visualization for Step 3 -->
-                    <div class="mt-6 h-36 flex items-center justify-center bg-gray-50/50 dark:bg-slate-950/40 rounded-2xl overflow-hidden border border-gray-100/50 dark:border-slate-900">
-                        <lottie-player src="https://assets6.lottiefiles.com/packages/lf20_g3mbygux.json" background="transparent" speed="0.8" class="w-24 h-24" loop autocomplete="on" autoplay></lottie-player>
+                    <div class="mt-4 h-32 flex items-center justify-center bg-gray-50/50 dark:bg-slate-950/40 rounded-2xl overflow-hidden border border-gray-100/50 dark:border-slate-900">
+                        <lottie-player src="https://assets6.lottiefiles.com/packages/lf20_g3mbygux.json" background="transparent" speed="0.8" class="w-20 h-20" loop autocomplete="on" autoplay></lottie-player>
                     </div>
                 </div>
 
                 <!-- Step 4 -->
-                <div class="p-6 rounded-3xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 flex flex-col justify-between hover:border-red-500/30 dark:hover:border-red-500/30 transition duration-300">
-                    <div class="space-y-4">
+                <div class="p-5 sm:p-6 rounded-3xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 flex flex-col justify-between hover:border-red-500/30 dark:hover:border-red-500/30 transition duration-300">
+                    <div class="space-y-3">
                         <div class="flex items-center justify-between">
-                            <span class="w-9 h-9 rounded-xl bg-brand-crimson/15 text-brand-crimson dark:bg-red-500/20 dark:text-red-400 font-bold text-sm font-mono flex items-center justify-center">04</span>
-                            <span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Ready</span>
+                            <span class="w-8 sm:w-9 h-8 sm:h-9 rounded-xl bg-brand-crimson/15 text-brand-crimson dark:bg-red-500/20 dark:text-red-400 font-bold text-xs sm:text-sm font-mono flex items-center justify-center">০৪</span>
+                            <span class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">খেলা উপভোগ করুন</span>
                         </div>
-                        <h3 class="font-bold text-slate-800 dark:text-slate-100 text-base">Launch Portal</h3>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
-                            The installation completes in seconds! Tap <strong>Open</strong> to lock in your live streaming configurations, check live scores, and stream matches in real-time.
+                        <h3 class="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base">লঞ্চ করে খেলা শুরু</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-normal">
+                            ইনস্টল সম্পন্ন হলে **Open** টিপুন এবং যেকোনো লাইভ ইভেন্ট, ম্যাচ এবং রিয়েলটাইম স্পোর্টস একাডেমির পোর্টাল অনায়াসে উপভোগ করুন!
                         </p>
                     </div>
                     <!-- Lottie visualization for Step 4 -->
-                    <div class="mt-6 h-36 flex items-center justify-center bg-gray-50/50 dark:bg-slate-950/40 rounded-2xl overflow-hidden border border-gray-100/50 dark:border-slate-900">
-                        <lottie-player src="https://assets9.lottiefiles.com/packages/lf20_uu0xn2qi.json" background="transparent" speed="1.2" class="w-24 h-24" loop autoplay></lottie-player>
+                    <div class="mt-4 h-32 flex items-center justify-center bg-gray-50/50 dark:bg-slate-950/40 rounded-2xl overflow-hidden border border-gray-100/50 dark:border-slate-900">
+                        <lottie-player src="https://assets9.lottiefiles.com/packages/lf20_uu0xn2qi.json" background="transparent" speed="1.2" class="w-20 h-20" loop autoplay></lottie-player>
                     </div>
                 </div>
 
@@ -292,50 +289,50 @@
         </section>
 
         <!-- Troubleshooting & Security FAQ Section -->
-        <section class="space-y-6">
+        <section class="space-y-4 px-2">
             <div class="flex items-center space-x-3 border-b border-gray-200 dark:border-slate-800 pb-2">
-                <svg class="w-5.5 h-5.5 text-brand-crimson dark:text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <svg class="w-5 h-5 text-brand-crimson dark:text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <h2 class="text-xl font-bold tracking-tight">Troubleshooting & Safety</h2>
+                <h2 class="text-lg sm:text-xl font-bold tracking-tight">সাধারণ সমস্যা ও সমাধান (FAQ)</h2>
             </div>
 
-            <div class="space-y-4">
+            <div class="space-y-3">
                 <!-- FAQ Item 1 -->
                 <div class="border border-gray-200 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900/20 overflow-hidden">
-                    <button class="w-full text-left p-5 font-semibold text-sm flex items-center justify-between text-slate-800 dark:text-slate-100 hover:bg-gray-50 dark:hover:bg-slate-900/40 transition" onclick="toggleFaq(this)">
-                        <span>⚠️ Android system flagged "Blocked by Play Protect". How to proceed?</span>
+                    <button class="w-full text-left p-4 sm:p-5 font-semibold text-xs sm:text-sm flex items-center justify-between text-slate-800 dark:text-slate-100 hover:bg-gray-50 dark:hover:bg-slate-900/40 transition" onclick="toggleFaq(this)">
+                        <span>⚠️ "Blocked by Play Protect" লেখা আসলে কী করব?</span>
                         <span class="text-xs transition-transform duration-200 text-slate-400 transform">▼</span>
                     </button>
                     <div class="px-5 pb-5 pt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium space-y-2 hidden">
-                        <p>Google Play Protect displays security prompts for applications compiled outside standard Developer Console processes because they don't have automatic Google signatures. To proceed safely:</p>
+                        <p>প্লে স্টোরের বাইরে থেকে অ্যাপ ডিরেক্ট ইন্সটল করার সময় প্লে প্রটেক্ট এটি দেখাতে পারে। এটি এড়াতে নিচের কাজগুলো করুন:</p>
                         <ol class="list-decimal pl-4 space-y-1">
-                            <li>On the warning panel, tap the small <strong class="text-brand-crimson dark:text-orange-400">"More Details"</strong> arrow.</li>
-                            <li>Tap the bottom text option: <strong class="text-brand-emerald">"Install Anyway"</strong>.</li>
-                            <li>The system wraps up setup and registers your portal flawlessly.</li>
+                            <li>আসন্ন সতর্কবার্তা ডায়ালগে <strong class="text-brand-crimson dark:text-orange-400">"More Details"</strong> লেখাতে আলতো চাপুন।</li>
+                            <li>সেখান থেকে নিচে উন্মোচিত হওয়া <strong class="text-brand-emerald">"Install Anyway"</strong> অপশনটিতে ক্লিক করুন।</li>
+                            <li>প্লে প্রোটেক্ট বাধা অতিক্রম করে অ্যাপটি সুরক্ষিতভাবে সম্পন্ন হবে।</li>
                         </ol>
                     </div>
                 </div>
 
                 <!-- FAQ Item 2 -->
                 <div class="border border-gray-200 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900/20 overflow-hidden">
-                    <button class="w-full text-left p-5 font-semibold text-sm flex items-center justify-between text-slate-800 dark:text-slate-100 hover:bg-gray-50 dark:hover:bg-slate-900/40 transition" onclick="toggleFaq(this)">
-                        <span>🔒 Is downloading directly from GitHub Pages safe from malware?</span>
+                    <button class="w-full text-left p-4 sm:p-5 font-semibold text-xs sm:text-sm flex items-center justify-between text-slate-800 dark:text-slate-100 hover:bg-gray-50 dark:hover:bg-slate-900/40 transition" onclick="toggleFaq(this)">
+                        <span>🔒 গিটহাব থেকে সরাসরি ডাউনলোড করা কি আসলেই নিরাপদ?</span>
                         <span class="text-xs transition-transform duration-200 text-slate-400 transform">▼</span>
                     </button>
                     <div class="px-5 pb-5 pt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-semibold text-brand-emerald hidden">
-                        "Your installation package is absolutely safe. Every version we launch gets automatically parsed, compiled, and archived directly on GitHub. Because of this end-to-end trace, no external actor or server is capable of poisoning our build outputs. It has zero hidden permissions and zero background tracking services."
+                        "জি, সম্পূর্ণ নিরাপদ। যেহেতু রিলিজ ফাইলগুলো আমাদের অফিসিয়াল গিটহাব রিপোজিটরে সরাসরি পুশ করা হয় এবং কোনো ইন্টারমিডিয়েট থার্ড পার্টি জড়িত থাকে না। এই ফাইলে ব্যাকগ্রাউন্ড অ্যাক্সেস বা ক্ষতিকর স্ক্রিপ্ট নেই।"
                     </div>
                 </div>
 
                 <!-- FAQ Item 3 -->
                 <div class="border border-gray-200 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900/20 overflow-hidden">
-                    <button class="w-full text-left p-5 font-semibold text-sm flex items-center justify-between text-slate-800 dark:text-slate-100 hover:bg-gray-50 dark:hover:bg-slate-900/40 transition" onclick="toggleFaq(this)">
-                        <span>🔄 How does the app check for updates?</span>
+                    <button class="w-full text-left p-4 sm:p-5 font-semibold text-xs sm:text-sm flex items-center justify-between text-slate-800 dark:text-slate-100 hover:bg-gray-50 dark:hover:bg-slate-900/40 transition" onclick="toggleFaq(this)">
+                        <span>🔄 অ্যাপটি কীভাবে নিজে নিজে আপডেট পায়?</span>
                         <span class="text-xs transition-transform duration-200 text-slate-400 transform">▼</span>
                     </button>
                     <div class="px-5 pb-5 pt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium hidden">
-                        "The Rimon Sports App has a highly secure update engine. When launched, it queries the official version schema remotely, automatically comparing version codes. If a newer deployment is uploaded on GitHub, you will be notified, and you can download the latest configuration file safely."
+                        "অ্যাপ চালুর সাথে সাথে আমাদের অনলাইন রিলিজ ডট জেসন ট্র্যাক থেকে এটি ভার্সন কোড চেক করে। নতুন আপডেট রিলিজ করার সঙ্গে সঙ্গে আপনার অ্যাপটির নিজস্ব সিকিউর স্ক্রিন প্যানেলে ডায়ালগ বক্সে নোটিফিকেশন প্রদান করা হবে।"
                     </div>
                 </div>
             </div>
@@ -344,30 +341,29 @@
     </main>
 
     <!-- Footer -->
-    <footer class="border-t border-gray-200/80 dark:border-slate-800/80 py-12 px-4 transition-colors duration-300">
+    <footer class="border-t border-gray-200/80 dark:border-slate-800/80 py-8 sm:py-12 px-4 transition-colors duration-300">
         <div class="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-slate-500">
             <div class="flex items-center space-x-3">
                 <div class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-900 border border-gray-200 dark:border-slate-800 flex items-center justify-center font-bold text-brand-crimson">R</div>
                 <div>
                     <span class="font-black tracking-wider text-slate-600 dark:text-slate-300 uppercase">Rimon Sports Academy</span>
-                    <p class="text-[10px] text-slate-400">© 2026. Built with integrity & high-fidelity caching loops.</p>
+                    <p class="text-[10px] text-slate-400">© 2026. সর্বস্বত্ত্ব সংরক্ষিত।</p>
                 </div>
             </div>
 
             <div class="flex items-center space-x-4">
-                <a href="https://github.com/arafatislam746672/rimonsports" target="_blank" class="hover:text-brand-crimson transition font-semibold">GitHub Source</a>
+                <a href="https://github.com/arafatislam746672/rimonsports" target="_blank" class="hover:text-brand-crimson transition font-semibold">গিটহাব সোর্স কোড</a>
                 <span>•</span>
                 <span class="flex items-center space-x-1 font-semibold text-brand-emerald">
                     <span class="text-xs">✔</span>
-                    <span>No data collected</span>
+                    <span>কোনো ডেটা সংগ্রহ করা হয় না</span>
                 </span>
             </div>
         </div>
     </footer>
 
-    <!-- Script Block for Theme switching, Accordion and Async version fetching -->
+    <!-- Theme toggler & logic -->
     <script>
-        // System Theme Syncing
         const btnTheme = document.getElementById('theme-toggle');
         const sunIcon = document.getElementById('sun-icon');
         const moonIcon = document.getElementById('moon-icon');
@@ -382,7 +378,7 @@
             }
         }
 
-        // Check local storage or match user preferences
+        // Initialize Theme Setup
         if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
             document.documentElement.classList.add('dark');
         } else {
@@ -401,7 +397,7 @@
             updateIcons();
         });
 
-        // FAQ accordion toggling
+        // Toggle FAQ Accordion
         function toggleFaq(btn) {
             const container = btn.nextElementSibling;
             const icon = btn.querySelector('span:last-child');
@@ -409,7 +405,7 @@
             icon.classList.toggle('rotate-180');
         }
 
-        // Asynchronous retrieval of version.json to ensure the landing page is completely automated
+        // Dynamic synchronizer for Version Control
         async function syncVersionManifest() {
             const versionUrl = 'https://raw.githubusercontent.com/arafatislam746672/rimonsports/main/version.json';
             const apkBtn = document.getElementById('apk-download-btn');
@@ -422,26 +418,19 @@
                 if (res.ok) {
                     const data = await res.json();
                     
-                    // Update main Action Links dynamically
                     if (data.downloadUrl) {
                         apkBtn.href = data.downloadUrl;
                     }
-                    
-                    // Update Version specifications
                     if (data.versionName) {
-                        listVername.innerText = `Ver: v${data.versionName}`;
+                        listVername.innerText = `ভার্সন: v${data.versionName}`;
                         tabVername.innerText = `v${data.versionName}`;
                     }
-
-                    // Update Release Notes gracefully
                     if (data.releaseNotes) {
-                        // Support HTML/Markdown list format conversion simply or pass directly safely
                         const lines = data.releaseNotes.split(/\r?\n/).filter(line => line.trim().length > 0);
                         if (lines.length > 0) {
                             let listHtml = `<ul class="list-disc pl-5 space-y-1.5 font-medium">`;
                             lines.forEach(line => {
-                                // Strip hyphens or asterisks if the user formatted it as list
-                                const cleanedLine = line.replace(/^[-\*\s]+/, '');
+                                const cleanedLine = line.replace(/^[-\*\s•]+/, '');
                                 listHtml += `<li>${cleanedLine}</li>`;
                             });
                             listHtml += `</ul>`;
@@ -450,14 +439,13 @@
                             tabReleaseNotes.innerText = data.releaseNotes;
                         }
                     }
-                    console.log('Dynamic version verification completed successfully.', data);
+                    console.log('Dynamic version check completed.', data);
                 }
             } catch (err) {
-                console.warn('Could not load online manifest, continuing with default metadata.', err);
+                console.warn('Fallback offline defaults continued.', err);
             }
         }
 
-        // Initialize sync
         window.addEventListener('DOMContentLoaded', () => {
             syncVersionManifest();
         });
