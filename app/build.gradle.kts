@@ -132,13 +132,17 @@ tasks.register("copyApkToLandingPages") {
   val inputApk = apkProvider
   val dest1 = rootDirFile.resolve("app-debug.apk")
   val dest2 = landingPageDirFile.resolve("app-debug.apk")
+  val dest1Zip = rootDirFile.resolve("app-debug.zip")
+  val dest2Zip = landingPageDirFile.resolve("app-debug.zip")
   
   doLast {
     val apkFile = inputApk.get().asFile
     if (apkFile.exists()) {
       apkFile.copyTo(dest1, overwrite = true)
       apkFile.copyTo(dest2, overwrite = true)
-      println("Successfully copied APK to both locations: $dest1 and $dest2")
+      apkFile.copyTo(dest1Zip, overwrite = true)
+      apkFile.copyTo(dest2Zip, overwrite = true)
+      println("Successfully copied APK and ZIP to both locations: $dest1 and $dest2")
     } else {
       println("Error: APK file not found at ${apkFile.absolutePath}")
     }
