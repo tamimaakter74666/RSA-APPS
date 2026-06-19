@@ -389,8 +389,8 @@
                 <div class="flex items-start space-x-3.5 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800/50">
                     <div class="flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-xl bg-gradient-to-br from-brand-crimson to-orange-500 text-white text-sm font-bold mt-0.5 shadow-md shadow-brand-crimson/15">১</div>
                     <div>
-                        <h4 class="font-bold text-slate-800 dark:text-slate-200 text-sm">ডাউনলোড শেষ করুন</h4>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">আপনার ব্রাউজারের নোটিফিকেশন বার থেকে ফাইলটি ডাউনলোড হওয়া পর্যন্ত অপেক্ষা করুন। কোনো সাইন বা সতর্কবার্তা আসলে ডাউনলোড কন্টিনিউ করুন।</p>
+                        <h4 class="font-bold text-slate-800 dark:text-slate-200 text-sm">ডাউনলোড শেষ করুন (এবং রিনেম করুন)</h4>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">ডাউনলোড হওয়া পর্যন্ত অপেক্ষা করুন। <strong class="text-brand-crimson dark:text-orange-400 font-bold">যদি ফাইলটি .zip ফরম্যাটে ডাউনলোড হয়</strong>, আপনার ফাইল ম্যানেজার থেকে ফাইলটি রিনেম করে শেষের <code class="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-brand-crimson font-mono">.zip</code> কেটে দিয়ে <code class="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-emerald-500 font-mono">.apk</code> লিখে সেভ করুন অথবা এটি আনজিপ ও এক্সট্র্যাক্ট করে সরাসরি ইন্সটল করুন।</p>
                     </div>
                 </div>
 
@@ -534,8 +534,12 @@
                                  window.location.hostname.includes('stackblitz');
 
             if (isLocalOrPre) {
-                apkBtn.href = './app-debug.apk';
-                console.log('Sandbox environment detected. Redirected APK download button to local file: ./app-debug.apk');
+                apkBtn.href = './app-debug.zip';
+                const btnTextSpan = apkBtn.querySelector('span span') || apkBtn.querySelector('span:last-child');
+                if (btnTextSpan) {
+                    btnTextSpan.innerText = 'ডাউনলোড করুন (ZIP ফাইল)';
+                }
+                console.log('Sandbox environment detected. Redirected APK download button to local file: ./app-debug.zip');
             }
 
             if (data) {
