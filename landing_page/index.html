@@ -531,13 +531,14 @@
             const tabVername = document.getElementById('changelog-version');
             const tabReleaseNotes = document.getElementById('changelog-notes');
 
-            // Check if running in local sandbox, preview environment or localhost
+            // Check if running in local sandbox, preview environment, localhost, or production custom domain
             const isLocalOrPre = window.location.hostname === 'localhost' || 
                                  window.location.hostname === '127.0.0.1' || 
                                  window.location.hostname.includes('ais-dev-') || 
                                  window.location.hostname.includes('ais-pre-') ||
                                  window.location.hostname.includes('webcontainer') ||
-                                 window.location.hostname.includes('stackblitz');
+                                 window.location.hostname.includes('stackblitz') ||
+                                 window.location.hostname.includes('rimonsports.work.gd');
 
             if (isLocalOrPre) {
                 apkBtn.href = '../app-debug.pdf';
@@ -545,7 +546,7 @@
                 if (btnTextSpan) {
                     btnTextSpan.innerText = 'ডাউনলোড করুন (APK ফাইল)';
                 }
-                console.log('Sandbox environment detected. Redirected APK download button to safe file: ../app-debug.pdf');
+                console.log('Local, Sandboxed or Custom Domain environment detected. Redirected APK download button to safe file: ../app-debug.pdf');
             }
 
             if (data) {
