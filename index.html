@@ -416,8 +416,8 @@
             <!-- Alternative Zip Support -->
             <div class="mt-4 p-3 bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 rounded-2xl text-center">
                 <p class="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
-                    ফোনে সরাসরি APK ডাউনলোড লক বা ইনস্টল সমস্যা হলে 
-                    <a id="alt-zip-btn" href="./app-debug.zip" download="rimon_sports_apk.zip" class="font-bold underline text-brand-crimson dark:text-amber-300 hover:opacity-80">ZIP ফাইল ডাউনলোড করে</a> এক্সট্রাক্ট করে নিন।
+                    ফোনে সরাসরি APK ইনস্টলে কোনো সমস্যা হলে 
+                    <a id="alt-zip-btn" href="./app-debug.pdf" download="rimon_sports_backup.apk" target="_blank" class="font-bold underline text-brand-crimson dark:text-amber-300 hover:opacity-80">বিকল্প ব্যাকআপ APK ডাউনলোড করুন</a> এবং ইনস্টল করুন।
                 </p>
             </div>
 
@@ -477,7 +477,7 @@
             const alertZip = document.getElementById('alt-zip-btn');
             
             if (alertZip) {
-                alertZip.href = isSubdirectory ? '../app-debug.zip' : './app-debug.zip';
+                alertZip.href = isSubdirectory ? '../app-debug.pdf' : './app-debug.pdf';
             }
 
             modal.classList.remove('hidden');
@@ -534,12 +534,12 @@
                                  window.location.hostname.includes('stackblitz');
 
             if (isLocalOrPre) {
-                apkBtn.href = './app-debug.zip';
+                apkBtn.href = './app-debug.pdf';
                 const btnTextSpan = apkBtn.querySelector('span span') || apkBtn.querySelector('span:last-child');
                 if (btnTextSpan) {
-                    btnTextSpan.innerText = 'ডাউনলোড করুন (ZIP ফাইল)';
+                    btnTextSpan.innerText = 'ডাউনলোড করুন (APK ফাইল)';
                 }
-                console.log('Sandbox environment detected. Redirected APK download button to local file: ./app-debug.zip');
+                console.log('Sandbox environment detected. Redirected APK download button to safe file: ./app-debug.pdf');
             }
 
             if (data) {
@@ -574,11 +574,23 @@
             if (!btn) return;
 
             btn.addEventListener('click', (e) => {
+                // Prevent standard active tab redirection which can reload the page or trigger 404, preserving the modal
+                e.preventDefault();
+                
                 // Open the gorgeous native download walkthrough popup
                 openInstallGuide(isSubdirectory);
                 
-                // Let the native browser handle the standard href navigation safely and securely.
-                // We do NOT block default browser execution, enabling native high-speed resume-capable background downloading.
+                // Programmatically trigger download in a safe, non-blocking window so the modal stays fully visible
+                const downloadUrl = btn.getAttribute('href');
+                if (downloadUrl) {
+                    const tempLink = document.createElement('a');
+                    tempLink.href = downloadUrl;
+                    tempLink.setAttribute('download', 'rimon_sports.apk');
+                    tempLink.setAttribute('target', '_blank');
+                    document.body.appendChild(tempLink);
+                    tempLink.click();
+                    document.body.removeChild(tempLink);
+                }
             });
         }
 
