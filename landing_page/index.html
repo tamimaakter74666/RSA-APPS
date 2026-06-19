@@ -362,12 +362,79 @@
         </div>
     </footer>
 
+    <!-- Installation Guide Modal (Popup) -->
+    <div id="install-guide-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md hidden opacity-0 transition-all duration-300">
+        <div class="relative w-full max-w-md p-6 sm:p-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl transform scale-95 transition-all duration-300">
+            <!-- Close Button -->
+            <button onclick="closeInstallGuide()" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+
+            <!-- Header -->
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-500 mb-3 animate-pulse">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                </div>
+                <h3 class="text-xl font-extrabold text-slate-900 dark:text-white">ডাউনলোড শুরু হয়েছে!</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">ফাইলটি সুরক্ষিত রাখতে নিচে দেওয়া নিয়মগুলো মেনে ইন্সটল করুন।</p>
+            </div>
+
+            <!-- Instructions Group -->
+            <div class="space-y-4">
+                <!-- Step 1 -->
+                <div class="flex items-start space-x-3.5 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800/50">
+                    <div class="flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-xl bg-gradient-to-br from-brand-crimson to-orange-500 text-white text-sm font-bold mt-0.5 shadow-md shadow-brand-crimson/15">১</div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 dark:text-slate-200 text-sm">ডাউনলোড শেষ করুন</h4>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">আপনার ব্রাউজারের নোটিফিকেশন বার থেকে ফাইলটি ডাউনলোড হওয়া পর্যন্ত অপেক্ষা করুন। কোনো সাইন বা সতর্কবার্তা আসলে ডাউনলোড কন্টিনিউ করুন।</p>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="flex items-start space-x-3.5 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800/50">
+                    <div class="flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white text-sm font-bold mt-0.5 shadow-md shadow-amber-500/15">২</div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 dark:text-slate-200 text-sm">Play Protect বাইপাস করুন (জরুরি)</h4>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">ইন্সটল করার সময় <strong class="text-brand-crimson dark:text-orange-400 font-bold">Blocked by Play Protect</strong> লেখা আসলে, সতর্কবার্তার ভেতর <strong class="underline decoration-wavy">"More Details"</strong> লেখাতে প্রেস করে <strong class="text-emerald-500 font-bold underline">"Install Anyway"</strong> অপশনটিতে ক্লিক করুন।</p>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="flex items-start space-x-3.5 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800/50">
+                    <div class="flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-sm font-bold mt-0.5 shadow-md shadow-emerald-500/15">৩</div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 dark:text-slate-200 text-sm">অজানা সোর্স পারমিশন দিন</h4>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">ফোন প্রথমবার বাইরে থেকে ডাউনলোড করা ফাইল ইন্সটল করতে চাইলে সেটিংসে গিয়ে ব্রাউজার বা ফাইল ম্যানেজার অ্যাপটির <strong class="text-emerald-500 dark:text-emerald-400 font-bold">"Allow install from unknown sources"</strong> পারমিশনটি অন করে দিন।</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alternative Zip Support -->
+            <div class="mt-4 p-3 bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 rounded-2xl text-center">
+                <p class="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
+                    ফোনে সরাসরি APK ডাউনলোড লক বা ইনস্টল সমস্যা হলে 
+                    <a id="alt-zip-btn" href="../app-debug.zip" download="rimon_sports_apk.zip" class="font-bold underline text-brand-crimson dark:text-amber-300 hover:opacity-80">ZIP ফাইল ডাউনলোড করে</a> এক্সট্রাক্ট করে নিন।
+                </p>
+            </div>
+
+            <!-- Action Button -->
+            <button onclick="closeInstallGuide()" class="mt-5 w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-brand-crimson to-orange-500 hover:from-orange-500 hover:to-brand-crimson text-white font-bold text-sm text-center transition-all duration-300 transform active:scale-95 shadow-lg shadow-brand-crimson/20">
+                বুঝেছি, ডাউনলোড শুরু হয়েছে
+            </button>
+        </div>
+    </div>
+
     <!-- Theme toggler & logic -->
     <script>
         const btnTheme = document.getElementById('theme-toggle');
         const sunIcon = document.getElementById('sun-icon');
         const moonIcon = document.getElementById('moon-icon');
 
+        // Dynamic theme synchronization
         function updateIcons() {
             if (document.documentElement.classList.contains('dark')) {
                 sunIcon.classList.remove('hidden');
@@ -403,6 +470,31 @@
             const icon = btn.querySelector('span:last-child');
             container.classList.toggle('hidden');
             icon.classList.toggle('rotate-180');
+        }
+
+        // Modal triggers
+        function openInstallGuide(isSubdirectory = true) {
+            const modal = document.getElementById('install-guide-modal');
+            const alertZip = document.getElementById('alt-zip-btn');
+            
+            if (alertZip) {
+                alertZip.href = isSubdirectory ? '../app-debug.zip' : './app-debug.zip';
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.querySelector('div').classList.remove('scale-95');
+            }, 50);
+        }
+
+        function closeInstallGuide() {
+            const modal = document.getElementById('install-guide-modal');
+            modal.classList.add('opacity-0');
+            modal.querySelector('div').classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
         }
 
         // Dynamic synchronizer for Version Control
@@ -479,97 +571,16 @@
         }
 
         // Robust client-side download handler with fallbacks
-        function setupDownloadHandler(isSubdirectory = false) {
+        function setupDownloadHandler(isSubdirectory = true) {
             const btn = document.getElementById('apk-download-btn');
             if (!btn) return;
 
-            btn.addEventListener('click', async (e) => {
-                e.preventDefault();
+            btn.addEventListener('click', (e) => {
+                // Open the gorgeous native download walkthrough popup
+                openInstallGuide(isSubdirectory);
                 
-                const originalContent = btn.innerHTML;
-                
-                btn.style.pointerEvents = 'none';
-                btn.innerHTML = `
-                    <span class="flex items-center justify-center space-x-2.5">
-                        <svg class="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span>সার্ভার থেকে ডাউনলোড হচ্ছে...</span>
-                    </span>
-                `;
-
-                const prefix = isSubdirectory ? '../' : './';
-                
-                // Fallbacks: Try local apk, then local zip (fully permitted by web servers), then configured download URL
-                const fallbacks = [
-                    prefix + 'app-debug.apk',
-                    prefix + 'app-debug.zip',
-                    btn.getAttribute('href')
-                ].filter(Boolean);
-
-                let successfulBlob = null;
-                let usedUrl = '';
-
-                for (const url of fallbacks) {
-                    try {
-                        console.log('Attempting fetch download from:', url);
-                        const response = await fetch(url);
-                        if (response.ok) {
-                            successfulBlob = await response.blob();
-                            usedUrl = url;
-                            break;
-                        }
-                    } catch (err) {
-                        console.warn('Failed attempt from URL:', url, err);
-                    }
-                }
-
-                if (successfulBlob) {
-                    try {
-                        btn.innerHTML = `
-                            <span class="flex items-center justify-center space-x-2.5">
-                                <svg class="w-5 h-5 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                                <span class="text-emerald-300 font-bold">ইন্সটল শুরু হচ্ছে...</span>
-                            </span>
-                        `;
-                        
-                        const packageBlob = new Blob([successfulBlob], { type: 'application/vnd.android.package-archive' });
-                        const blobUrl = URL.createObjectURL(packageBlob);
-                        
-                        const tempLink = document.createElement('a');
-                        tempLink.href = blobUrl;
-                        tempLink.download = 'rimon_sports.apk';
-                        document.body.appendChild(tempLink);
-                        tempLink.click();
-                        document.body.removeChild(tempLink);
-                        
-                        setTimeout(() => {
-                            URL.revokeObjectURL(blobUrl);
-                        }, 8000);
-                        
-                    } catch (err) {
-                        console.error('Blob trigger failed, fall back to navigation', err);
-                        window.location.href = usedUrl;
-                    }
-                } else {
-                    console.log('All fallbacks failed. Direct navigation standard fallback.');
-                    const currentHref = btn.getAttribute('href') || (prefix + 'app-debug.apk');
-                    
-                    const tempLink = document.createElement('a');
-                    tempLink.href = currentHref;
-                    tempLink.download = 'rimon_sports.apk';
-                    document.body.appendChild(tempLink);
-                    tempLink.click();
-                    document.body.removeChild(tempLink);
-                }
-
-                setTimeout(() => {
-                    btn.innerHTML = originalContent;
-                    btn.style.pointerEvents = 'auto';
-                }, 3000);
+                // Let the native browser handle the standard href navigation safely and securely.
+                // We do NOT block default browser execution, enabling native high-speed resume-capable background downloading.
             });
         }
 
