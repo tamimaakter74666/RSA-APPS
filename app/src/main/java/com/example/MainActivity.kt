@@ -98,6 +98,7 @@ class MainActivity : ComponentActivity() {
 
         // Pre-emptively create WebView internal cache directories synchronously to guarantee they exist before Chromium starts initializing
         preProvisionWebViewCache(this)
+        startWebViewCacheMonitoring(this, lifecycleScope)
 
         // Initialize Firebase programmatically to avoid crashes if Google Services config is missing
         try {
@@ -514,6 +515,20 @@ fun preProvisionWebViewCache(context: android.content.Context) {
         Log.d("WebViewApp", "Pre-provisioned WebView Code Cache directories with stay-alive markers successfully.")
     } catch (e: Exception) {
          Log.e("WebViewApp", "Failed to pre-provision WebView cache directories: ${e.message}")
+    }
+}
+
+fun startWebViewCacheMonitoring(context: android.content.Context, scope: kotlinx.coroutines.CoroutineScope) {
+    scope.launch(Dispatchers.IO) {
+        while (true) {
+            try {
+                preProvisionWebViewCache(context)
+            } catch (e: Exception) {
+                // Ignore silent errors
+            }
+            // Check every 15 seconds instead of 25-250ms to prevent CPU/IO starvation and deployment timeouts
+            kotlinx.coroutines.delay(15000L)
+        }
     }
 }
 

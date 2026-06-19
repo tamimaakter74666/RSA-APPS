@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rimon Sports - Premium Sports Streaming Portal</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            crimson: '#E53935',
+                            hover: '#C62828',
+                            light: '#FFEBEE',
+                            dark: '#5F0909',
+                            sky: '#0284C7',
+                            emerald: '#10B981',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    boxShadow: {
+                        'neon-brand': '0 0 15px rgba(229, 57, 53, 0.4)',
+                        'neon-glow': '0 0 25px rgba(229, 57, 53, 0.25)',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Lottie Player Script -->
+    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+    <!-- Style adjustments for smooth toggle -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .glass-header {
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen">
+
+    <!-- Top Glow Effect (Dark Mode only) -->
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[450px] bg-gradient-to-b from-red-600/10 via-sky-600/5 to-transparent blur-3xl pointer-events-none -z-10"></div>
+
+    <!-- Navigation Header -->
+    <header class="sticky top-0 z-50 w-full border-b border-gray-200/80 dark:border-slate-800/80 glass-header bg-white/70 dark:bg-slate-950/70 transition-colors duration-300">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+            <!-- Brand Logo -->
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-crimson to-amber-500 flex items-center justify-center shadow-md shadow-red-500/15">
+                    <svg class="w-5.5 h-5.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m12 3-1.912 5.886H3.886L8.7 12.518 6.786 18.4l5.214-3.79 5.214 3.79-1.914-5.882 4.814-3.632h-6.202L12 3z"/>
+                    </svg>
+                </div>
+                <div>
+                    <span class="text-lg font-bold tracking-tight bg-gradient-to-r from-brand-crimson to-amber-500 dark:to-orange-400 bg-clip-text text-transparent">RIMON SPORTS</span>
+                    <span class="block text-[10px] uppercase tracking-widest text-slate-500 font-semibold leading-none">Academy Portal</span>
+                </div>
+            </div>
+
+            <!-- Header Controls -->
+            <div class="flex items-center space-x-4">
+                <a href="#install-guide" class="hidden sm:inline-flex text-sm font-medium text-slate-600 hover:text-brand-crimson dark:text-slate-400 dark:hover:text-amber-400 transition">Install Guide</a>
+                <a href="#whats-new" class="hidden sm:inline-flex text-sm font-medium text-slate-600 hover:text-brand-crimson dark:text-slate-400 dark:hover:text-amber-400 transition">Changelog</a>
+                
+                <!-- Theme Toggle Button -->
+                <button id="theme-toggle" aria-label="Toggle Light/Dark Theme" class="p-2.5 rounded-xl border border-gray-200 hover:bg-gray-100 dark:border-slate-800 dark:hover:bg-slate-900 transition-all text-slate-500 dark:text-slate-400">
+                    <!-- Sun Icon (active in dark, hidden in light) -->
+                    <svg id="sun-icon" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                    <!-- Moon Icon (active in light, hidden in dark) -->
+                    <svg id="moon-icon" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 sm:px-6 py-12 space-y-16">
+
+        <!-- Hero Section -->
+        <section class="text-center space-y-8 py-4">
+            <!-- Badge -->
+            <div class="inline-flex items-center space-x-2 bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-500/20 px-3.5 py-1.5 rounded-full text-brand-crimson dark:text-orange-400 font-semibold text-xs tracking-wide">
+                <svg class="w-3.5 h-3.5 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
+                    <circle cx="10" cy="10" r="10" />
+                </svg>
+                <span>OFFICIAL DISCHARGE WEB Portal</span>
+            </div>
+
+            <!-- Title -->
+            <div class="space-y-4">
+                <h1 class="text-4xl sm:text-5xl font-black tracking-tight leading-tight">
+                    Premium Sports Streams <br class="hidden sm:inline">
+                    <span class="bg-gradient-to-r from-brand-crimson via-orange-500 to-amber-500 dark:from-red-500 dark:via-rose-400 dark:to-orange-400 bg-clip-text text-transparent">Directly on Your Android Device</span>
+                </h1>
+                <p class="max-w-xl mx-auto text-slate-600 dark:text-slate-400 text-base sm:text-lg font-normal leading-relaxed">
+                    Watch HD live streams and get instant live scores for standard networks completely free of cost. Fast caching engines, low latency, and robust playback buffers.
+                </p>
+            </div>
+
+            <!-- Dynamic Version Block & Download Button Container -->
+            <div class="max-w-md mx-auto p-6 sm:p-8 rounded-3xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xl shadow-slate-200/50 dark:shadow-none backdrop-blur-md transition-all duration-300">
+                
+                <!-- Direct Download Trigger -->
+                <a id="apk-download-btn" href="https://github.com/arafatislam746672/rimonsports/releases" class="relative group overflow-hidden block w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-brand-crimson to-orange-500 hover:from-amber-500 hover:to-brand-crimson text-white font-bold text-lg text-center transition-all duration-300 transform active:scale-95 shadow-md shadow-brand-crimson/20 dark:shadow-neon-brand hover:shadow-brand-crimson/40">
+                    <!-- Glow Sweep Animation -->
+                    <span class="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></span>
+                    <span class="flex items-center justify-center space-x-3">
+                        <svg class="w-6 h-6 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        <span>Download APK Direct</span>
+                    </span>
+                </a>
+
+                <!-- Meta Specs -->
+                <div class="mt-4 flex items-center justify-center space-x-4 text-xs font-mono text-slate-500 dark:text-slate-400">
+                    <span class="flex items-center space-x-1">
+                        <svg class="w-3.5 h-3.5 text-brand-crimson dark:text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                        <span id="label-verified">Verified Safe</span>
+                    </span>
+                    <span>•</span>
+                    <span id="label-size">File Size: ~15 MB</span>
+                    <span>•</span>
+                    <span id="label-vername">Ver: v1.0.0</span>
+                </div>
+
+                <!-- Verified Badges -->
+                <div class="mt-6 pt-6 border-t border-gray-100 dark:border-slate-800 flex items-center justify-around text-[11px] text-slate-500 font-medium">
+                    <div class="flex flex-col items-center">
+                        <span class="text-brand-emerald text-lg">✓</span>
+                        <span>Multi-Scan Verified</span>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <span class="text-brand-sky text-lg">🛡️</span>
+                        <span>No Intrusive Ads</span>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <span class="text-amber-500 text-lg">⚡</span>
+                        <span>Zero Trackers</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Version Info / "What's New" Section -->
+        <section id="whats-new" class="space-y-6">
+            <div class="flex items-center space-x-3 border-b border-gray-200 dark:border-slate-800 pb-2">
+                <svg class="w-5.5 h-5.5 text-brand-crimson dark:text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <h2 class="text-xl font-bold tracking-tight">What's New & Version Details</h2>
+            </div>
+
+            <div class="p-6 sm:p-8 rounded-3xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 relative overflow-hidden">
+                <!-- Decorative background elements -->
+                <div class="absolute right-0 top-0 w-32 h-32 bg-orange-500/5 rounded-full blur-2xl pointer-events-none"></div>
+
+                <div class="flex flex-col md:flex-row md:items-start justify-between gap-6">
+                    <div class="space-y-3 flex-1">
+                        <div class="flex items-center space-x-2.5">
+                            <span class="text-xs font-mono font-bold bg-brand-crimson/10 text-brand-crimson dark:bg-orange-500/15 dark:text-orange-400 px-2.5 py-1 rounded-md" id="changelog-version">v1.2.0</span>
+                            <span class="text-xs text-slate-500 font-medium" id="changelog-date">Released Recently</span>
+                        </div>
+                        <h3 class="font-bold text-lg text-slate-800 dark:text-slate-200">Stability & Media Delivery Overhaul</h3>
+                        <div id="changelog-notes" class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed space-y-2">
+                            <p>Here are the latest stability patches:</p>
+                            <ul class="list-disc pl-5 space-y-1.5 font-medium">
+                                <li>Dynamically resolves Chromium file cache failures programmatically over responsive loops.</li>
+                                <li>Custom browser configuration to support Google Login autofill, bypass and redirects seamlessly.</li>
+                                <li>High-speed video caching architecture with dynamic memory checks on boot.</li>
+                                <li>Responsive Material 3 Bento layouts targeting Compact, Medium, and Expanded viewports.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Structured visual "User Installation Guide" -->
+        <section id="install-guide" class="space-y-8">
+            <div class="flex items-center space-x-3 border-b border-gray-200 dark:border-slate-800 pb-2">
+                <svg class="w-5.5 h-5.5 text-brand-crimson dark:text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                <h2 class="text-xl font-bold tracking-tight">How to Install App (Step-by-Step)</h2>
+            </div>
+
+            <!-- Tab / Cards Architecture -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+
+                <!-- Step 1 -->
+                <div class="p-6 rounded-3xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 flex flex-col justify-between hover:border-red-500/30 dark:hover:border-red-500/30 transition duration-300">
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="w-9 h-9 rounded-xl bg-brand-crimson/15 text-brand-crimson dark:bg-red-500/20 dark:text-red-400 font-bold text-sm font-mono flex items-center justify-center">01</span>
+                            <span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">First Step</span>
+                        </div>
+                        <h3 class="font-bold text-slate-800 dark:text-slate-100 text-base">Click & Download</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                            Click on the <strong class="text-brand-crimson dark:text-orange-400">Download APK</strong> button. The installation file package starts downloading immediately onto your browser storage securely.
+                        </p>
+                    </div>
+                    <!-- Lottie visualization for Step 1 -->
+                    <div class="mt-6 h-36 flex items-center justify-center bg-gray-50/50 dark:bg-slate-950/40 rounded-2xl overflow-hidden border border-gray-100/50 dark:border-slate-900">
+                        <lottie-player src="https://assets5.lottiefiles.com/packages/lf20_0yfsb3a1.json" background="transparent" speed="1" class="w-24 h-24" loop autocomplete="on" autoplay></lottie-player>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="p-6 rounded-3xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 flex flex-col justify-between hover:border-red-500/30 dark:hover:border-red-500/30 transition duration-300">
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="w-9 h-9 rounded-xl bg-brand-crimson/15 text-brand-crimson dark:bg-red-500/20 dark:text-red-400 font-bold text-sm font-mono flex items-center justify-center">02</span>
+                            <span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Permission</span>
+                        </div>
+                        <h3 class="font-bold text-slate-800 dark:text-slate-100 text-base">Allow Safe Sources</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                            If Android displays a security request, open your browser settings or tap <strong>Install Unknown Apps</strong> and toggle <strong>Permission "ON"</strong>. This is 100% safe as we compile directly from Github.
+                        </p>
+                    </div>
+                    <!-- Lottie visualization for Step 2 -->
+                    <div class="mt-6 h-36 flex items-center justify-center bg-gray-50/50 dark:bg-slate-950/40 rounded-2xl overflow-hidden border border-gray-100/50 dark:border-slate-900">
+                        <lottie-player src="https://assets1.lottiefiles.com/packages/lf20_ghp9zvky.json" background="transparent" speed="1" class="w-24 h-24" loop autocomplete="on" autoplay></lottie-player>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="p-6 rounded-3xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 flex flex-col justify-between hover:border-red-500/30 dark:hover:border-red-500/30 transition duration-300">
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="w-9 h-9 rounded-xl bg-brand-crimson/15 text-brand-crimson dark:bg-red-500/20 dark:text-red-400 font-bold text-sm font-mono flex items-center justify-center">03</span>
+                            <span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Package Installer</span>
+                        </div>
+                        <h3 class="font-bold text-slate-800 dark:text-slate-100 text-base">Tap to Install</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                            Locate the finished download on your system status bar, or open your Files App and tap onto <code class="font-mono bg-gray-100 dark:bg-slate-850 px-1 py-0.5 rounded text-[10px]">rimon_sports.apk</code>, then click **Install**.
+                        </p>
+                    </div>
+                    <!-- Lottie visualization for Step 3 -->
+                    <div class="mt-6 h-36 flex items-center justify-center bg-gray-50/50 dark:bg-slate-950/40 rounded-2xl overflow-hidden border border-gray-100/50 dark:border-slate-900">
+                        <lottie-player src="https://assets6.lottiefiles.com/packages/lf20_g3mbygux.json" background="transparent" speed="0.8" class="w-24 h-24" loop autocomplete="on" autoplay></lottie-player>
+                    </div>
+                </div>
+
+                <!-- Step 4 -->
+                <div class="p-6 rounded-3xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 flex flex-col justify-between hover:border-red-500/30 dark:hover:border-red-500/30 transition duration-300">
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="w-9 h-9 rounded-xl bg-brand-crimson/15 text-brand-crimson dark:bg-red-500/20 dark:text-red-400 font-bold text-sm font-mono flex items-center justify-center">04</span>
+                            <span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Ready</span>
+                        </div>
+                        <h3 class="font-bold text-slate-800 dark:text-slate-100 text-base">Launch Portal</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                            The installation completes in seconds! Tap <strong>Open</strong> to lock in your live streaming configurations, check live scores, and stream matches in real-time.
+                        </p>
+                    </div>
+                    <!-- Lottie visualization for Step 4 -->
+                    <div class="mt-6 h-36 flex items-center justify-center bg-gray-50/50 dark:bg-slate-950/40 rounded-2xl overflow-hidden border border-gray-100/50 dark:border-slate-900">
+                        <lottie-player src="https://assets9.lottiefiles.com/packages/lf20_uu0xn2qi.json" background="transparent" speed="1.2" class="w-24 h-24" loop autoplay></lottie-player>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Troubleshooting & Security FAQ Section -->
+        <section class="space-y-6">
+            <div class="flex items-center space-x-3 border-b border-gray-200 dark:border-slate-800 pb-2">
+                <svg class="w-5.5 h-5.5 text-brand-crimson dark:text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <h2 class="text-xl font-bold tracking-tight">Troubleshooting & Safety</h2>
+            </div>
+
+            <div class="space-y-4">
+                <!-- FAQ Item 1 -->
+                <div class="border border-gray-200 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900/20 overflow-hidden">
+                    <button class="w-full text-left p-5 font-semibold text-sm flex items-center justify-between text-slate-800 dark:text-slate-100 hover:bg-gray-50 dark:hover:bg-slate-900/40 transition" onclick="toggleFaq(this)">
+                        <span>⚠️ Android system flagged "Blocked by Play Protect". How to proceed?</span>
+                        <span class="text-xs transition-transform duration-200 text-slate-400 transform">▼</span>
+                    </button>
+                    <div class="px-5 pb-5 pt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium space-y-2 hidden">
+                        <p>Google Play Protect displays security prompts for applications compiled outside standard Developer Console processes because they don't have automatic Google signatures. To proceed safely:</p>
+                        <ol class="list-decimal pl-4 space-y-1">
+                            <li>On the warning panel, tap the small <strong class="text-brand-crimson dark:text-orange-400">"More Details"</strong> arrow.</li>
+                            <li>Tap the bottom text option: <strong class="text-brand-emerald">"Install Anyway"</strong>.</li>
+                            <li>The system wraps up setup and registers your portal flawlessly.</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <!-- FAQ Item 2 -->
+                <div class="border border-gray-200 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900/20 overflow-hidden">
+                    <button class="w-full text-left p-5 font-semibold text-sm flex items-center justify-between text-slate-800 dark:text-slate-100 hover:bg-gray-50 dark:hover:bg-slate-900/40 transition" onclick="toggleFaq(this)">
+                        <span>🔒 Is downloading directly from GitHub Pages safe from malware?</span>
+                        <span class="text-xs transition-transform duration-200 text-slate-400 transform">▼</span>
+                    </button>
+                    <div class="px-5 pb-5 pt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-semibold text-brand-emerald hidden">
+                        "Your installation package is absolutely safe. Every version we launch gets automatically parsed, compiled, and archived directly on GitHub. Because of this end-to-end trace, no external actor or server is capable of poisoning our build outputs. It has zero hidden permissions and zero background tracking services."
+                    </div>
+                </div>
+
+                <!-- FAQ Item 3 -->
+                <div class="border border-gray-200 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900/20 overflow-hidden">
+                    <button class="w-full text-left p-5 font-semibold text-sm flex items-center justify-between text-slate-800 dark:text-slate-100 hover:bg-gray-50 dark:hover:bg-slate-900/40 transition" onclick="toggleFaq(this)">
+                        <span>🔄 How does the app check for updates?</span>
+                        <span class="text-xs transition-transform duration-200 text-slate-400 transform">▼</span>
+                    </button>
+                    <div class="px-5 pb-5 pt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium hidden">
+                        "The Rimon Sports App has a highly secure update engine. When launched, it queries the official version schema remotely, automatically comparing version codes. If a newer deployment is uploaded on GitHub, you will be notified, and you can download the latest configuration file safely."
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-gray-200/80 dark:border-slate-800/80 py-12 px-4 transition-colors duration-300">
+        <div class="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-slate-500">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-900 border border-gray-200 dark:border-slate-800 flex items-center justify-center font-bold text-brand-crimson">R</div>
+                <div>
+                    <span class="font-black tracking-wider text-slate-600 dark:text-slate-300 uppercase">Rimon Sports Academy</span>
+                    <p class="text-[10px] text-slate-400">© 2026. Built with integrity & high-fidelity caching loops.</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-4">
+                <a href="https://github.com/arafatislam746672/rimonsports" target="_blank" class="hover:text-brand-crimson transition font-semibold">GitHub Source</a>
+                <span>•</span>
+                <span class="flex items-center space-x-1 font-semibold text-brand-emerald">
+                    <span class="text-xs">✔</span>
+                    <span>No data collected</span>
+                </span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Script Block for Theme switching, Accordion and Async version fetching -->
+    <script>
+        // System Theme Syncing
+        const btnTheme = document.getElementById('theme-toggle');
+        const sunIcon = document.getElementById('sun-icon');
+        const moonIcon = document.getElementById('moon-icon');
+
+        function updateIcons() {
+            if (document.documentElement.classList.contains('dark')) {
+                sunIcon.classList.remove('hidden');
+                moonIcon.classList.add('hidden');
+            } else {
+                sunIcon.classList.add('hidden');
+                moonIcon.classList.remove('hidden');
+            }
+        }
+
+        // Check local storage or match user preferences
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        updateIcons();
+
+        btnTheme.addEventListener('click', () => {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.theme = 'light';
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.theme = 'dark';
+            }
+            updateIcons();
+        });
+
+        // FAQ accordion toggling
+        function toggleFaq(btn) {
+            const container = btn.nextElementSibling;
+            const icon = btn.querySelector('span:last-child');
+            container.classList.toggle('hidden');
+            icon.classList.toggle('rotate-180');
+        }
+
+        // Asynchronous retrieval of version.json to ensure the landing page is completely automated
+        async function syncVersionManifest() {
+            const versionUrl = 'https://raw.githubusercontent.com/arafatislam746672/rimonsports/main/version.json';
+            const apkBtn = document.getElementById('apk-download-btn');
+            const listVername = document.getElementById('label-vername');
+            const tabVername = document.getElementById('changelog-version');
+            const tabReleaseNotes = document.getElementById('changelog-notes');
+
+            try {
+                const res = await fetch(versionUrl);
+                if (res.ok) {
+                    const data = await res.json();
+                    
+                    // Update main Action Links dynamically
+                    if (data.downloadUrl) {
+                        apkBtn.href = data.downloadUrl;
+                    }
+                    
+                    // Update Version specifications
+                    if (data.versionName) {
+                        listVername.innerText = `Ver: v${data.versionName}`;
+                        tabVername.innerText = `v${data.versionName}`;
+                    }
+
+                    // Update Release Notes gracefully
+                    if (data.releaseNotes) {
+                        // Support HTML/Markdown list format conversion simply or pass directly safely
+                        const lines = data.releaseNotes.split(/\r?\n/).filter(line => line.trim().length > 0);
+                        if (lines.length > 0) {
+                            let listHtml = `<ul class="list-disc pl-5 space-y-1.5 font-medium">`;
+                            lines.forEach(line => {
+                                // Strip hyphens or asterisks if the user formatted it as list
+                                const cleanedLine = line.replace(/^[-\*\s]+/, '');
+                                listHtml += `<li>${cleanedLine}</li>`;
+                            });
+                            listHtml += `</ul>`;
+                            tabReleaseNotes.innerHTML = listHtml;
+                        } else {
+                            tabReleaseNotes.innerText = data.releaseNotes;
+                        }
+                    }
+                    console.log('Dynamic version verification completed successfully.', data);
+                }
+            } catch (err) {
+                console.warn('Could not load online manifest, continuing with default metadata.', err);
+            }
+        }
+
+        // Initialize sync
+        window.addEventListener('DOMContentLoaded', () => {
+            syncVersionManifest();
+        });
+    </script>
+</body>
+</html>
