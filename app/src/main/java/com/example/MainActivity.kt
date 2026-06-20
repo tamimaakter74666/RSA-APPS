@@ -513,6 +513,15 @@ fun preProvisionWebViewCache(context: android.content.Context) {
                     jsKeep.delete()
                 }
             }
+            // Ensure folder contains a solid placeholder so Chromium or system cleaners don't delete empty directories
+            try {
+                val jsPlaceholder = File(jsDir, ".placeholder")
+                if (!jsPlaceholder.exists()) {
+                    jsPlaceholder.createNewFile()
+                }
+            } catch (e: Exception) {
+                // Silent catch
+            }
 
             // Provision WASM Cache directory
             val wasmDir = File(baseCacheDir, "wasm")
@@ -525,6 +534,15 @@ fun preProvisionWebViewCache(context: android.content.Context) {
                 if (wasmKeep.exists()) {
                     wasmKeep.delete()
                 }
+            }
+            // Ensure folder contains a solid placeholder so Chromium or system cleaners don't delete empty directories
+            try {
+                val wasmPlaceholder = File(wasmDir, ".placeholder")
+                if (!wasmPlaceholder.exists()) {
+                    wasmPlaceholder.createNewFile()
+                }
+            } catch (e: Exception) {
+                // Silent catch
             }
         }
         Log.d("WebViewApp", "Pre-provisioned all possible WebView Code Cache paths successfully.")
