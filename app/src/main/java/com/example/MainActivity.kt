@@ -367,7 +367,7 @@ class MainActivity : ComponentActivity() {
                                         )
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Text(
-                                            text = "To bypass security alerts and keep installation 100% safe, the update will be downloaded securely through your internet browser.",
+                                            text = "The update will be downloaded securely directly in-app and installed automatically. This is safe, secure, and fast.",
                                             style = MaterialTheme.typography.bodySmall,
                                             fontWeight = FontWeight.SemiBold,
                                             color = Purple40
@@ -378,8 +378,44 @@ class MainActivity : ComponentActivity() {
                                     Button(
                                         onClick = {
                                             try {
-                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(updateInfo!!.downloadUrl))
-                                                context.startActivity(intent)
+                                                isDownloadingUpdate = true
+                                                updateDownloadProgress = 0f
+                                                updateErrorMessage = null
+                                                downloadAndInstallApk(
+                                                    context = context,
+                                                    downloadUrl = updateInfo!!.downloadUrl,
+                                                    onProgress = { progress ->
+                                                        updateDownloadProgress = progress
+                                                    },
+                                                    onComplete = { apkFile ->
+                                                        isDownloadingUpdate = false
+                                                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                                            if (!context.packageManager.canRequestPackageInstalls()) {
+                                                                android.widget.Toast.makeText(
+                                                                    context,
+                                                                    "Please allow Rimon Sports to install apps from unknown sources, then go back to finish installation.",
+                                                                    android.widget.Toast.LENGTH_LONG
+                                                                ).show()
+                                                                try {
+                                                                    val settingsIntent = Intent(
+                                                                        android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                                                        Uri.parse("package:${context.packageName}")
+                                                                    )
+                                                                    context.startActivity(settingsIntent)
+                                                                } catch (settingsEx: Exception) {
+                                                                    installApk(context, apkFile)
+                                                                }
+                                                            } else {
+                                                                installApk(context, apkFile)
+                                                             }
+                                                         } else {
+                                                             installApk(context, apkFile)
+                                                         }
+                                                     },
+                                                     onError = { error ->
+                                                         updateErrorMessage = error
+                                                     }
+                                                 )
                                             } catch (e: Exception) {
                                                 Log.e("WebViewApp", "Failed to open update url: ${e.message}")
                                             }
@@ -401,6 +437,91 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         Text(text = "Later", color = Purple40)
                                     }
+                                }
+                            )
+                        }
+
+                        if (isDownloadingUpdate) {
+                            AlertDialog(
+                                onDismissRequest = {},
+                                shape = RoundedCornerShape(28.dp),
+                                containerColor = BentoSecondaryContainer,
+                                title = {
+                                    Text(
+                                        text = "Downloading Update",
+                                        fontWeight = FontWeight.Bold,
+                                        color = BentoDarkText
+                                    )
+                                },
+                                text = {
+                                     Column(
+                                         modifier = Modifier
+                                             .fillMaxWidth()
+                                             .padding(vertical = 8.dp),
+                                         horizontalAlignment = Alignment.CenterHorizontally
+                                     ) {
+                                         Text(
+                                             text = "Please wait while the update (v${updateInfo?.versionName}) is being downloaded securely to your device...",
+                                             style = MaterialTheme.typography.bodyMedium,
+                                             color = BentoMutedText,
+                                             modifier = Modifier.padding(bottom = 16.dp)
+                                         )
+
+                                         LinearProgressIndicator(
+                                             progress = { updateDownloadProgress },
+                                             modifier = Modifier
+                                                 .fillMaxWidth()
+                                                 .height(8.dp)
+                                                 .clip(RoundedCornerShape(4.dp)),
+                                             color = Purple40,
+                                             trackColor = Color.LightGray
+                                         )
+
+                                         Spacer(modifier = Modifier.height(12.dp))
+
+                                         val percentage = (updateDownloadProgress * 100).toInt()
+                                         Text(
+                                             text = "$percentage%",
+                                             style = MaterialTheme.typography.titleMedium,
+                                             fontWeight = FontWeight.Bold,
+                                             color = Purple40
+                                         )
+
+                                         if (updateErrorMessage != null) {
+                                             Spacer(modifier = Modifier.height(8.dp))
+                                             Text(
+                                                 text = "Error: $updateErrorMessage",
+                                                 color = MaterialTheme.colorScheme.error,
+                                                 style = MaterialTheme.typography.bodySmall
+                                             )
+                                         }
+                                     }
+                                },
+                                confirmButton = {
+                                     if (updateErrorMessage != null) {
+                                         Button(
+                                             onClick = {
+                                                 updateErrorMessage = null
+                                                 updateDownloadProgress = 0f
+                                                 isDownloadingUpdate = false
+                                             },
+                                             colors = ButtonDefaults.buttonColors(
+                                                 containerColor = Purple40,
+                                                 contentColor = Color.White
+                                             )
+                                         ) {
+                                             Text("Close & Retry")
+                                         }
+                                     } else {
+                                         TextButton(
+                                             onClick = {
+                                                 isDownloadingUpdate = false
+                                                 updateDownloadProgress = 0f
+                                             }
+                                         ) {
+                                             Text("Cancel", color = Color.Gray)
+                                         }
+                                     }
                                 }
                             )
                         }
@@ -1198,6 +1319,80 @@ private fun checkForUpdates(context: Context, onNewVersionAvailable: (UpdateInfo
         } catch (e: Exception) {
             Log.e("WebViewApp", "Error checking for updates: ${e.message}")
         }
+    }
+}
+
+private fun downloadAndInstallApk(
+    context: Context,
+    downloadUrl: String,
+    onProgress: (Float) -> Unit,
+    onComplete: (File) -> Unit,
+    onError: (String) -> Unit
+) {
+    kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+        try {
+            val client = OkHttpClient.Builder()
+                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+
+            val request = Request.Builder().url(downloadUrl).build()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw java.io.IOException("Unsuccessful download: $response")
+                }
+                val body = response.body ?: throw java.io.IOException("Zero response size")
+                val totalLength = body.contentLength()
+
+                val updateFile = File(context.cacheDir, "rimon_sports_update.apk")
+                if (updateFile.exists()) {
+                    updateFile.delete()
+                }
+
+                body.byteStream().use { input ->
+                    FileOutputStream(updateFile).use { output ->
+                        val buffer = ByteArray(8192)
+                        var read: Int
+                        var written = 0L
+                        while (input.read(buffer).also { read = it } != -1) {
+                            output.write(buffer, 0, read)
+                            written += read
+                            if (totalLength > 0) {
+                                val currentProgress = written.toFloat() / totalLength.toFloat()
+                                withContext(Dispatchers.Main) {
+                                    onProgress(currentProgress)
+                                }
+                            }
+                        }
+                        output.flush()
+                    }
+                }
+
+                withContext(Dispatchers.Main) {
+                    onComplete(updateFile)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("WebViewApp", "Download error: ${e.message}", e)
+            withContext(Dispatchers.Main) {
+                onError(e.message ?: "Unknown secure download error")
+            }
+        }
+    }
+}
+
+private fun installApk(context: Context, apkFile: File) {
+    try {
+        val authority = "${context.packageName}.fileprovider"
+        val uri = FileProvider.getUriForFile(context, authority, apkFile)
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/vnd.android.package-archive")
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+        }
+        context.startActivity(intent)
+    } catch (e: java.lang.Exception) {
+        Log.e("WebViewApp", "Install Error: ${e.message}", e)
+        android.widget.Toast.makeText(context, "Install failed: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
     }
 }
 
