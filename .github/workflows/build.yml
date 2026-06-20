@@ -29,6 +29,11 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
+      - name: Regenerate Gradle Wrapper Jar
+        run: |
+          rm -f gradle/wrapper/gradle-wrapper.jar
+          gradle wrapper --gradle-version 9.3.1
+
       - name: Grant Execute Permission to Gradlew
         run: chmod +x gradlew
 
