@@ -110,6 +110,7 @@ dependencies {
   implementation(libs.androidx.compose.ui.graphics)
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
+  implementation("androidx.fragment:fragment-ktx:1.6.2")
   implementation("androidx.compose.foundation:foundation")
   implementation(libs.androidx.core.ktx)
   // implementation(libs.androidx.datastore.preferences)
