@@ -506,13 +506,11 @@ fun preProvisionWebViewCache(context: android.content.Context) {
             if (!jsDir.exists()) {
                 val success = jsDir.mkdirs()
                 Log.d("WebViewApp", "Pre-created jsDir at $relPath: $success")
-            }
-            val jsKeep = File(jsDir, ".keep")
-            if (!jsKeep.exists()) {
-                try {
-                    jsKeep.createNewFile()
-                } catch (e: Exception) {
-                    // ignore
+            } else {
+                // Delete old `.keep` file if exists to prevent Chromium cache corruption
+                val jsKeep = File(jsDir, ".keep")
+                if (jsKeep.exists()) {
+                    jsKeep.delete()
                 }
             }
 
@@ -521,13 +519,11 @@ fun preProvisionWebViewCache(context: android.content.Context) {
             if (!wasmDir.exists()) {
                 val success = wasmDir.mkdirs()
                 Log.d("WebViewApp", "Pre-created wasmDir at $relPath: $success")
-            }
-            val wasmKeep = File(wasmDir, ".keep")
-            if (!wasmKeep.exists()) {
-                try {
-                    wasmKeep.createNewFile()
-                } catch (e: Exception) {
-                    // ignore
+            } else {
+                // Delete old `.keep` file if exists to prevent Chromium cache corruption
+                val wasmKeep = File(wasmDir, ".keep")
+                if (wasmKeep.exists()) {
+                    wasmKeep.delete()
                 }
             }
         }
