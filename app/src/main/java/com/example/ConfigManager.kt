@@ -41,12 +41,13 @@ data class AppConfig(
     val maintenanceMode: Boolean = false,
     val featureChatEnabled: Boolean = true,
     val appStatus: String = "Active", // "Active" or "Maintenance"
-    val latestApkVersion: String = "1.0",
+    val latestApkVersion: String = "1.2.0",
+    val latestApkVersionCode: Int = 3,
     val maintenanceStartTime: String = "",
     val maintenanceEndTime: String = "",
     val lastUpdated: Long = System.currentTimeMillis(),
     val appName: String = "Rimon Sports",
-    val appLogoUrl: String = "https://drive.google.com/file/d/14Yfjs1ctIlPlLM4kcO8vwdNCDqOx8fv_/view?usp=drive_link",
+    val appLogoUrl: String = "https://drive.google.com/file/d/1m5OYOPwQsK54Lz1-6IdiCHizA5sphBX6/view",
     val notificationTitle: String = "",
     val notificationBody: String = "",
     val notificationId: String = ""
@@ -98,13 +99,14 @@ class ConfigManager private constructor(private val context: Context) {
                     "themeColor": "#040D1A",
                     "maintenanceMode": false,
                     "appStatus": "Active",
-                    "latestApkVersion": "1.0",
+                    "latestApkVersion": "1.2.0",
+                    "latestApkVersionCode": 3,
                     "featureChatEnabled": true,
                     "maintenanceStartTime": "",
                     "maintenanceEndTime": "",
                     "lastUpdated": ${System.currentTimeMillis()},
                     "appName": "Rimon Sports",
-                    "appLogoUrl": "https://drive.google.com/file/d/14Yfjs1ctIlPlLM4kcO8vwdNCDqOx8fv_/view?usp=drive_link",
+                    "appLogoUrl": "https://drive.google.com/file/d/1m5OYOPwQsK54Lz1-6IdiCHizA5sphBX6/view",
                     "notificationTitle": "",
                     "notificationBody": "",
                     "notificationId": ""
@@ -200,10 +202,23 @@ class ConfigManager private constructor(private val context: Context) {
                             val githubLogoUrl = json.optString("appLogoUrl", "")
                             val githubThemeColor = json.optString("themeColor", "")
                             val githubAppStatus = json.optString("appStatus", "")
-                            val githubLatestApkVersion = json.optString("latestApkVersion", "")
+                            val githubLatestApkVersionCode = if (json.has("versionCode")) {
+                                json.optInt("versionCode", 3)
+                            } else {
+                                json.optInt("latestApkVersionCode", 3)
+                            }
+                            val githubLatestApkVersion = if (json.has("versionName")) {
+                                json.optString("versionName", "1.2.0")
+                            } else {
+                                json.optString("latestApkVersion", "1.2.0")
+                            }
                             
                             val previousUrl = _configState.value.websiteUrl
                             var updatedConfig = _configState.value
+                            updatedConfig = updatedConfig.copy(
+                                latestApkVersion = githubLatestApkVersion,
+                                latestApkVersionCode = githubLatestApkVersionCode
+                            )
                             
                             if (githubUrl.isNotEmpty() && isValidHttpsUrl(githubUrl)) {
                                 updatedConfig = updatedConfig.copy(websiteUrl = githubUrl)
@@ -257,7 +272,8 @@ class ConfigManager private constructor(private val context: Context) {
             val dbUrl = snapshot.getString("website_url")
             val dbBackupUrl = snapshot.getString("backup_website_url")
             val dbStatus = snapshot.getString("app_status") ?: "Active"
-            val dbApkVersion = snapshot.getString("latest_apk_version") ?: "1.0"
+            val dbApkVersion = snapshot.getString("latest_apk_version") ?: "1.2.0"
+            val dbApkVersionCode = snapshot.getLong("latest_apk_version_code")?.toInt() ?: _configState.value.latestApkVersionCode
             val dbTheme = snapshot.getString("theme_color") ?: "#040D1A"
             val dbChat = snapshot.getBoolean("feature_chat_enabled") ?: true
             val dbStartTime = snapshot.getString("maintenance_start_time") ?: ""
@@ -283,6 +299,7 @@ class ConfigManager private constructor(private val context: Context) {
                 maintenanceMode = dbStatus == "Maintenance",
                 appStatus = dbStatus,
                 latestApkVersion = dbApkVersion,
+                latestApkVersionCode = dbApkVersionCode,
                 featureChatEnabled = dbChat,
                 maintenanceStartTime = dbStartTime,
                 maintenanceEndTime = dbEndTime,
@@ -365,6 +382,7 @@ class ConfigManager private constructor(private val context: Context) {
                 maintenanceMode = remoteJson.optBoolean("maintenanceMode", _configState.value.maintenanceMode) || (remoteJson.optString("appStatus", "Active") == "Maintenance"),
                 appStatus = remoteJson.optString("appStatus", _configState.value.appStatus),
                 latestApkVersion = remoteJson.optString("latestApkVersion", _configState.value.latestApkVersion),
+                latestApkVersionCode = remoteJson.optInt("latestApkVersionCode", _configState.value.latestApkVersionCode),
                 featureChatEnabled = remoteJson.optBoolean("featureChatEnabled", _configState.value.featureChatEnabled),
                 maintenanceStartTime = remoteJson.optString("maintenanceStartTime", _configState.value.maintenanceStartTime),
                 maintenanceEndTime = remoteJson.optString("maintenanceEndTime", _configState.value.maintenanceEndTime),
@@ -394,6 +412,7 @@ class ConfigManager private constructor(private val context: Context) {
         backupWebsiteUrl: String = _configState.value.backupWebsiteUrl,
         appStatus: String,
         latestApkVersion: String,
+        latestApkVersionCode: Int = _configState.value.latestApkVersionCode,
         maintenanceStartTime: String,
         maintenanceEndTime: String,
         appName: String = _configState.value.appName,
@@ -408,6 +427,7 @@ class ConfigManager private constructor(private val context: Context) {
             "backup_website_url" to backupWebsiteUrl,
             "app_status" to appStatus,
             "latest_apk_version" to latestApkVersion,
+            "latest_apk_version_code" to latestApkVersionCode,
             "theme_color" to _configState.value.themeColor,
             "feature_chat_enabled" to _configState.value.featureChatEnabled,
             "maintenance_start_time" to maintenanceStartTime,
@@ -428,6 +448,7 @@ class ConfigManager private constructor(private val context: Context) {
             maintenanceMode = appStatus == "Maintenance",
             appStatus = appStatus,
             latestApkVersion = latestApkVersion,
+            latestApkVersionCode = latestApkVersionCode,
             featureChatEnabled = _configState.value.featureChatEnabled,
             maintenanceStartTime = maintenanceStartTime,
             maintenanceEndTime = maintenanceEndTime,
@@ -469,6 +490,7 @@ class ConfigManager private constructor(private val context: Context) {
         backupWebsiteUrl: String,
         appStatus: String,
         latestApkVersion: String,
+        latestApkVersionCode: Int,
         appName: String,
         appLogoUrl: String,
         onComplete: (Boolean, String?) -> Unit
@@ -506,8 +528,8 @@ class ConfigManager private constructor(private val context: Context) {
 
                 // Step 2: Build the newly updated JSON payload structure
                 val newJson = JSONObject().apply {
-                    put("versionCode", 3)
-                    put("versionName", "1.2.0")
+                    put("versionCode", latestApkVersionCode)
+                    put("versionName", latestApkVersion)
                     put("downloadUrl", "https://github.com/tamimaakter74666/RSA-APPS/releases/download/latest/rimon_sports_release.apk")
                     put("releaseNotes", "• Dynamic configurations successfully synchronized.")
                     put("websiteUrl", websiteUrl)
@@ -588,6 +610,7 @@ class ConfigManager private constructor(private val context: Context) {
             putBoolean("maintenance_mode", config.maintenanceMode)
             putString("app_status", config.appStatus)
             putString("latest_apk_version", config.latestApkVersion)
+            putInt("latest_apk_version_code", config.latestApkVersionCode)
             putBoolean("feature_chat_enabled", config.featureChatEnabled)
             putString("maintenance_start_time", config.maintenanceStartTime)
             putString("maintenance_end_time", config.maintenanceEndTime)
@@ -612,14 +635,15 @@ class ConfigManager private constructor(private val context: Context) {
         val themeColor = sharedPrefs.getString("theme_color", "#040D1A") ?: "#040D1A"
         val maintenanceMode = sharedPrefs.getBoolean("maintenance_mode", false)
         val appStatus = sharedPrefs.getString("app_status", "Active") ?: "Active"
-        val latestApkVersion = sharedPrefs.getString("latest_apk_version", "1.0") ?: "1.0"
+        val latestApkVersion = sharedPrefs.getString("latest_apk_version", "1.2.0") ?: "1.2.0"
+        val latestApkVersionCode = sharedPrefs.getInt("latest_apk_version_code", 3)
         val featureChatEnabled = sharedPrefs.getBoolean("feature_chat_enabled", true)
         val maintenanceStartTime = sharedPrefs.getString("maintenance_start_time", "") ?: ""
         val maintenanceEndTime = sharedPrefs.getString("maintenance_end_time", "") ?: ""
         val lastUpdated = sharedPrefs.getLong("last_updated_timestamp", System.currentTimeMillis())
         val appName = sharedPrefs.getString("app_name", "Rimon Sports") ?: "Rimon Sports"
-        val appLogoUrl = sharedPrefs.getString("app_logo_url", "https://drive.google.com/file/d/14Yfjs1ctIlPlLM4kcO8vwdNCDqOx8fv_/view?usp=drive_link")
-            ?: "https://drive.google.com/file/d/14Yfjs1ctIlPlLM4kcO8vwdNCDqOx8fv_/view?usp=drive_link"
+        val appLogoUrl = sharedPrefs.getString("app_logo_url", "https://drive.google.com/file/d/1m5OYOPwQsK54Lz1-6IdiCHizA5sphBX6/view")
+            ?: "https://drive.google.com/file/d/1m5OYOPwQsK54Lz1-6IdiCHizA5sphBX6/view"
         val notificationTitle = sharedPrefs.getString("notification_title", "") ?: ""
         val notificationBody = sharedPrefs.getString("notification_body", "") ?: ""
         val notificationId = sharedPrefs.getString("notification_id", "") ?: ""
@@ -631,6 +655,7 @@ class ConfigManager private constructor(private val context: Context) {
             maintenanceMode = maintenanceMode || (appStatus == "Maintenance"),
             appStatus = appStatus,
             latestApkVersion = latestApkVersion,
+            latestApkVersionCode = latestApkVersionCode,
             featureChatEnabled = featureChatEnabled,
             maintenanceStartTime = maintenanceStartTime,
             maintenanceEndTime = maintenanceEndTime,

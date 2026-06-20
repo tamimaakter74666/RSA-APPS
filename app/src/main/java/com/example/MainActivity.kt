@@ -1303,6 +1303,16 @@ private fun checkForUpdates(context: Context, onNewVersionAvailable: (UpdateInfo
 
                         if (serverVersionCode > currentVersionCode) {
                             withContext(Dispatchers.Main) {
+                                val prefs = context.getSharedPreferences("app_update_prefs", Context.MODE_PRIVATE)
+                                val lastNotifiedVersion = prefs.getInt("last_notified_version", 0)
+                                if (lastNotifiedVersion < serverVersionCode) {
+                                    triggerNativePushNotification(
+                                        context,
+                                        "Rimon Sports নতুন আপডেট উপলব্ধ! 🚀",
+                                        "অ্যাপটির নতুন সংস্করণ ($serverVersionName) এসেছে। এখনই ডাউনলোড এবং আপডেট করতে এখানে চাপুন।"
+                                    )
+                                    prefs.edit().putInt("last_notified_version", serverVersionCode).apply()
+                                }
                                 onNewVersionAvailable(
                                     UpdateInfo(
                                         versionCode = serverVersionCode,

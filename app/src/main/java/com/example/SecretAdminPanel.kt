@@ -65,7 +65,9 @@ fun SecretAdminPanel(
     var websiteUrlInput by remember { mutableStateOf(configState.websiteUrl) }
     var backupWebsiteUrlInput by remember { mutableStateOf(configState.backupWebsiteUrl) }
     var appStatusInput by remember { mutableStateOf(configState.appStatus) }
-    var latestApkVersionInput by remember { mutableStateOf(configState.latestApkVersion) }
+    var useCurrentAppVersion by remember { mutableStateOf(true) }
+    var latestApkVersionInput by remember { mutableStateOf(BuildConfig.VERSION_NAME) }
+    var latestApkVersionCodeInput by remember { mutableStateOf(BuildConfig.VERSION_CODE.toString()) }
     var maintenanceStartTimeInput by remember { mutableStateOf(configState.maintenanceStartTime) }
     var maintenanceEndTimeInput by remember { mutableStateOf(configState.maintenanceEndTime) }
     var appNameInput by remember { mutableStateOf(configState.appName) }
@@ -89,13 +91,29 @@ fun SecretAdminPanel(
         websiteUrlInput = configState.websiteUrl
         backupWebsiteUrlInput = configState.backupWebsiteUrl
         appStatusInput = configState.appStatus
-        latestApkVersionInput = configState.latestApkVersion
+        if (useCurrentAppVersion) {
+            latestApkVersionInput = BuildConfig.VERSION_NAME
+            latestApkVersionCodeInput = BuildConfig.VERSION_CODE.toString()
+        } else {
+            latestApkVersionInput = configState.latestApkVersion
+            latestApkVersionCodeInput = configState.latestApkVersionCode.toString()
+        }
         maintenanceStartTimeInput = configState.maintenanceStartTime
         maintenanceEndTimeInput = configState.maintenanceEndTime
         appNameInput = configState.appName
         appLogoUrlInput = configState.appLogoUrl
         notificationTitleInput = configState.notificationTitle
         notificationBodyInput = configState.notificationBody
+    }
+
+    LaunchedEffect(useCurrentAppVersion) {
+        if (useCurrentAppVersion) {
+            latestApkVersionInput = BuildConfig.VERSION_NAME
+            latestApkVersionCodeInput = BuildConfig.VERSION_CODE.toString()
+        } else {
+            latestApkVersionInput = configState.latestApkVersion
+            latestApkVersionCodeInput = configState.latestApkVersionCode.toString()
+        }
     }
 
     AlertDialog(
@@ -673,19 +691,42 @@ fun SecretAdminPanel(
                                                                 githubSyncSuccess = null
                                                                 githubSyncError = null
 
+                                                                // Read version info dynamically (it either has BuildConfig if useCurrentAppVersion is true, or user overrides)
+                                                                val finalVerName = if (useCurrentAppVersion) BuildConfig.VERSION_NAME else latestApkVersionInput
+                                                                val finalVerCode = if (useCurrentAppVersion) BuildConfig.VERSION_CODE else (latestApkVersionCodeInput.toIntOrNull() ?: BuildConfig.VERSION_CODE)
+
                                                                 configManager.saveConfigToGithub(
                                                                     githubToken = githubTokenInput.trim(),
                                                                     websiteUrl = websiteUrlInput,
                                                                     backupWebsiteUrl = backupWebsiteUrlInput,
                                                                     appStatus = appStatusInput,
-                                                                    latestApkVersion = latestApkVersionInput,
+                                                                    latestApkVersion = finalVerName,
+                                                                    latestApkVersionCode = finalVerCode,
                                                                     appName = appNameInput,
                                                                     appLogoUrl = appLogoUrlInput
                                                                 ) { success, errMsg ->
-                                                                    isGithubSyncing = false
                                                                     if (success) {
-                                                                        githubSyncSuccess = "⚡ আলহামদুলিল্লাহ! আপনার GitHub রিপোজিটরির version.json ফাইলটি সফলভাবে অটোমেটিক আপডেট হয়ে গেছে! ২-৫ সেকেন্ডের মাঝে সকল ইউজার আপডেট পেয়ে যাবেন!"
+                                                                        // On successful GitHub update, also push to Firestore automatically so everything is perfectly synced in lockstep!
+                                                                        configManager.saveConfigToFirestore(
+                                                                            websiteUrl = websiteUrlInput,
+                                                                            backupWebsiteUrl = backupWebsiteUrlInput,
+                                                                            appStatus = appStatusInput,
+                                                                            latestApkVersion = finalVerName,
+                                                                            latestApkVersionCode = finalVerCode,
+                                                                            maintenanceStartTime = maintenanceStartTimeInput,
+                                                                            maintenanceEndTime = maintenanceEndTimeInput,
+                                                                            appName = appNameInput,
+                                                                            appLogoUrl = appLogoUrlInput
+                                                                        ) { firestoreSuccess, firestoreError ->
+                                                                            isGithubSyncing = false
+                                                                            if (firestoreSuccess) {
+                                                                                githubSyncSuccess = "⚡ আলহামদুলিল্লাহ! আপনার GitHub (version.json) এবং Firestore নোটিফিকেশন সিস্টেম উভয়ই সফলভাবে অটোমেটিক আপডেট হয়ে গেছে! ২-৫ সেকেন্ডের মাঝে সকল ইউজার নতুন আপডেট পেয়ে যাবেন!"
+                                                                            } else {
+                                                                                githubSyncSuccess = "⚡ আলহামদুলিল্লাহ! GitHub-এ version.json সফলভাবে আপডেট হয়েছে। তবে ফায়ারবেস সেভ হয়নি (Firestore: $firestoreError)।"
+                                                                            }
+                                                                        }
                                                                     } else {
+                                                                        isGithubSyncing = false
                                                                         githubSyncError = "ত্রুটি: $errMsg\nটোকেনটি সঠিক এবং 'repo' পারমিশন আছে কিনা চেক করুন।"
                                                                     }
                                                                 }
@@ -702,7 +743,7 @@ fun SecretAdminPanel(
                                                             } else {
                                                                 Icon(imageVector = Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                                                                 Spacer(modifier = Modifier.width(8.dp))
-                                                                Text("⚡ AUTOMATIC SYNC TO GITHUB", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                                Text("⚡ AUTOMATIC SYNC TO GITHUB & FIRESTORE", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                                             }
                                                         }
 
@@ -1044,19 +1085,97 @@ fun SecretAdminPanel(
                                                     Spacer(modifier = Modifier.width(6.dp))
                                                     Text("Target Deployment APK Version", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                                 }
+                                                Spacer(modifier = Modifier.height(6.dp))
+
+                                                // Automatic Version Selector Choice
+                                                Card(
+                                                    colors = CardDefaults.cardColors(containerColor = PrimaryIndigo.copy(alpha = 0.08f)),
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .border(1.dp, PrimaryIndigo.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(10.dp),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Column(modifier = Modifier.weight(1f)) {
+                                                            Text(
+                                                                text = "অটোমেটিক রিলিজ সিঙ্ক্রোনাইজেশন",
+                                                                color = TextWhite,
+                                                                fontWeight = FontWeight.Bold,
+                                                                fontSize = 12.sp
+                                                            )
+                                                            Text(
+                                                                text = "চলতি ইনস্টলড অ্যাপের সংস্করণ ব্যবহার করা হবে (v${BuildConfig.VERSION_NAME} - Code: ${BuildConfig.VERSION_CODE})",
+                                                                color = TextSlate,
+                                                                fontSize = 10.sp,
+                                                                lineHeight = 13.sp
+                                                            )
+                                                        }
+                                                        Switch(
+                                                            checked = useCurrentAppVersion,
+                                                            onCheckedChange = { useCurrentAppVersion = it },
+                                                            colors = SwitchDefaults.colors(
+                                                                checkedThumbColor = SecondaryCyan,
+                                                                checkedTrackColor = PrimaryIndigo,
+                                                                uncheckedThumbColor = TextSlate,
+                                                                uncheckedTrackColor = SurfaceDark
+                                                            )
+                                                        )
+                                                    }
+                                                }
+
+                                                Spacer(modifier = Modifier.height(12.dp))
+
+                                                Text("Target Deployment APK Version Name", color = TextWhite.copy(alpha = if (useCurrentAppVersion) 0.5f else 1f), fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
                                                 Spacer(modifier = Modifier.height(4.dp))
                                                 OutlinedTextField(
                                                     value = latestApkVersionInput,
                                                     onValueChange = { latestApkVersionInput = it },
-                                                    placeholder = { Text("1.0.5") },
+                                                    placeholder = { Text("1.2.0") },
+                                                    enabled = !useCurrentAppVersion,
                                                     colors = OutlinedTextFieldDefaults.colors(
                                                         focusedBorderColor = PrimaryIndigo,
                                                         unfocusedBorderColor = BorderSlate,
                                                         focusedTextColor = TextWhite,
-                                                        unfocusedTextColor = TextWhite
+                                                        unfocusedTextColor = TextWhite,
+                                                        disabledTextColor = TextWhite.copy(alpha = 0.6f),
+                                                        disabledBorderColor = BorderSlate.copy(alpha = 0.4f)
                                                     ),
                                                     modifier = Modifier.fillMaxWidth(),
                                                     singleLine = true
+                                                )
+
+                                                Spacer(modifier = Modifier.height(12.dp))
+
+                                                Text("Target Deployment APK Version Code", color = TextWhite.copy(alpha = if (useCurrentAppVersion) 0.5f else 1f), fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                OutlinedTextField(
+                                                    value = latestApkVersionCodeInput,
+                                                    onValueChange = { latestApkVersionCodeInput = it },
+                                                    placeholder = { Text("3") },
+                                                    enabled = !useCurrentAppVersion,
+                                                    colors = OutlinedTextFieldDefaults.colors(
+                                                        focusedBorderColor = PrimaryIndigo,
+                                                        unfocusedBorderColor = BorderSlate,
+                                                        focusedTextColor = TextWhite,
+                                                        unfocusedTextColor = TextWhite,
+                                                        disabledTextColor = TextWhite.copy(alpha = 0.6f),
+                                                        disabledBorderColor = BorderSlate.copy(alpha = 0.4f)
+                                                    ),
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    singleLine = true
+                                                )
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    "Note: এটি বাড়ালে (যেমন: ৩ থেকে ৪) সকল ইউজারের ফোনে আপডেট নোটিফিকেশন সাথে সাথে চলে যাবে!",
+                                                    color = EmeraldSuccess,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.SemiBold
                                                 )
 
                                                 Spacer(modifier = Modifier.height(20.dp))
@@ -1259,6 +1378,7 @@ fun SecretAdminPanel(
                                                             backupWebsiteUrl = backupWebsiteUrlInput,
                                                             appStatus = appStatusInput,
                                                             latestApkVersion = latestApkVersionInput,
+                                                            latestApkVersionCode = latestApkVersionCodeInput.toIntOrNull() ?: 3,
                                                             appName = appNameInput,
                                                             appLogoUrl = appLogoUrlInput,
                                                             maintenanceStartTime = maintenanceStartTimeInput,
@@ -1351,6 +1471,7 @@ fun SecretAdminPanel(
                                                 backupWebsiteUrl = backupWebsiteUrlInput,
                                                 appStatus = appStatusInput,
                                                 latestApkVersion = latestApkVersionInput,
+                                                latestApkVersionCode = latestApkVersionCodeInput.toIntOrNull() ?: 3,
                                                 maintenanceStartTime = maintenanceStartTimeInput,
                                                 maintenanceEndTime = maintenanceEndTimeInput,
                                                 appName = appNameInput,
