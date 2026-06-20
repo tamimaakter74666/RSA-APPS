@@ -1,10 +1,10 @@
 {
   "versionCode": 3,
   "versionName": "1.2.0",
-  "downloadUrl": "https://github.com/tamimaakter74666/RSA-APPS/releases/download/latest/rimon_sports_release.apk",
-  "releaseNotes": "• Dynamically resolves web caching programmatically.\n• Bypasses Google Login redirect lags seamlessly.\n• Custom web buffer optimization on initialization.\n• Beautiful responsive Material Design 3 bento layouts.",
-  "websiteUrl": "https://rimonsportsacademy.vercel.app/",
-  "backupWebsiteUrl": "https://rimonsportsacademy.rimonsportsacademy.workers.dev/",
+  "downloadUrl": "https:\/\/github.com\/tamimaakter74666\/RSA-APPS\/releases\/download\/latest\/rimon_sports_release.apk",
+  "releaseNotes": "• Dynamic configurations successfully synchronized.",
+  "websiteUrl": "https:\/\/rimonsportsacademy.vercel.app\/",
+  "backupWebsiteUrl": "https:\/\/rimonsportsacademy.rimonsportsacademy.workers.dev\/",
   "appName": "Rimon Sports",
   "appLogoUrl": "",
   "appStatus": "Active"
