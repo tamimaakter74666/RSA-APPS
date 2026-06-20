@@ -35,8 +35,8 @@ import kotlinx.coroutines.withContext
  * Using a clean, decoupled data architecture with self-healing fallback states.
  */
 data class AppConfig(
-    val websiteUrl: String = "https://rimonsportsacademy.vercel.app/",
-    val backupWebsiteUrl: String = "https://rimonsportsacademy.rimonsportsacademy.workers.dev/",
+    val websiteUrl: String = "https://rimonsports.com/",
+    val backupWebsiteUrl: String = "https://rimonsportsacademy.vercel.app/",
     val themeColor: String = "#040D1A",
     val maintenanceMode: Boolean = false,
     val featureChatEnabled: Boolean = true,
@@ -46,7 +46,7 @@ data class AppConfig(
     val maintenanceEndTime: String = "",
     val lastUpdated: Long = System.currentTimeMillis(),
     val appName: String = "Rimon Sports",
-    val appLogoUrl: String = "",
+    val appLogoUrl: String = "https://drive.google.com/file/d/14Yfjs1ctIlPlLM4kcO8vwdNCDqOx8fv_/view?usp=drive_link",
     val notificationTitle: String = "",
     val notificationBody: String = "",
     val notificationId: String = ""
@@ -92,8 +92,8 @@ class ConfigManager private constructor(private val context: Context) {
             firebaseConfig.setConfigSettingsAsync(configSettings)
 
             val defaults = mapOf(
-                "website_url" to "https://rimonsportsacademy.vercel.app/",
-                "backup_website_url" to "https://rimonsportsacademy.rimonsportsacademy.workers.dev/",
+                "website_url" to "https://rimonsports.com/",
+                "backup_website_url" to "https://rimonsportsacademy.vercel.app/",
                 "app_config_json" to """{
                     "themeColor": "#040D1A",
                     "maintenanceMode": false,
@@ -104,7 +104,7 @@ class ConfigManager private constructor(private val context: Context) {
                     "maintenanceEndTime": "",
                     "lastUpdated": ${System.currentTimeMillis()},
                     "appName": "Rimon Sports",
-                    "appLogoUrl": "",
+                    "appLogoUrl": "https://drive.google.com/file/d/14Yfjs1ctIlPlLM4kcO8vwdNCDqOx8fv_/view?usp=drive_link",
                     "notificationTitle": "",
                     "notificationBody": "",
                     "notificationId": ""
@@ -605,10 +605,10 @@ class ConfigManager private constructor(private val context: Context) {
      * Loads locally persisted config fast during app startups.
      */
     private fun loadLocalPersistedConfig(): AppConfig {
-        val websiteUrl = sharedPrefs.getString("website_url", "https://rimonsportsacademy.vercel.app/")
+        val websiteUrl = sharedPrefs.getString("website_url", "https://rimonsports.com/")
+            ?: "https://rimonsports.com/"
+        val backupWebsiteUrl = sharedPrefs.getString("backup_website_url", "https://rimonsportsacademy.vercel.app/")
             ?: "https://rimonsportsacademy.vercel.app/"
-        val backupWebsiteUrl = sharedPrefs.getString("backup_website_url", "https://rimonsportsacademy.rimonsportsacademy.workers.dev/")
-            ?: "https://rimonsportsacademy.rimonsportsacademy.workers.dev/"
         val themeColor = sharedPrefs.getString("theme_color", "#040D1A") ?: "#040D1A"
         val maintenanceMode = sharedPrefs.getBoolean("maintenance_mode", false)
         val appStatus = sharedPrefs.getString("app_status", "Active") ?: "Active"
@@ -618,7 +618,8 @@ class ConfigManager private constructor(private val context: Context) {
         val maintenanceEndTime = sharedPrefs.getString("maintenance_end_time", "") ?: ""
         val lastUpdated = sharedPrefs.getLong("last_updated_timestamp", System.currentTimeMillis())
         val appName = sharedPrefs.getString("app_name", "Rimon Sports") ?: "Rimon Sports"
-        val appLogoUrl = sharedPrefs.getString("app_logo_url", "") ?: ""
+        val appLogoUrl = sharedPrefs.getString("app_logo_url", "https://drive.google.com/file/d/14Yfjs1ctIlPlLM4kcO8vwdNCDqOx8fv_/view?usp=drive_link")
+            ?: "https://drive.google.com/file/d/14Yfjs1ctIlPlLM4kcO8vwdNCDqOx8fv_/view?usp=drive_link"
         val notificationTitle = sharedPrefs.getString("notification_title", "") ?: ""
         val notificationBody = sharedPrefs.getString("notification_body", "") ?: ""
         val notificationId = sharedPrefs.getString("notification_id", "") ?: ""
@@ -656,8 +657,8 @@ class ConfigManager private constructor(private val context: Context) {
      * Recover from failures instantly with stable checkpoints.
      */
     fun getFallbackUrl(): String {
-        val fallback = sharedPrefs.getString("last_stable_url", "https://rimonsportsacademy.vercel.app/")
-            ?: "https://rimonsportsacademy.vercel.app/"
+        val fallback = sharedPrefs.getString("last_stable_url", "https://rimonsports.com/")
+            ?: "https://rimonsports.com/"
         Log.w("ConfigManager", "Falling back to stable checkpoint: $fallback")
         return fallback
     }
