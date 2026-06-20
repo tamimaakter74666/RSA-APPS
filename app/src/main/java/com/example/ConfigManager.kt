@@ -23,6 +23,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import org.json.JSONObject
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
+import kotlinx.coroutines.withContext
+
 
 /**
  * Representing the application remote configuration model.
@@ -164,6 +170,83 @@ class ConfigManager private constructor(private val context: Context) {
 
         // Run an initial configurations sync
         fetchAndTriggerUpdates(onUrlChanged)
+
+        // Run the dynamic GitHub-hosted configuration sync fallback!
+        syncConfigFromGithub(onUrlChanged)
+    }
+
+    /**
+     * Highly resilient fallback configuration hotpatching from GitHub's version.json.
+     * Activates instantly, bypassing Firebase setup dependency for non-expert admins.
+     */
+    fun syncConfigFromGithub(onUrlChanged: (String) -> Unit = {}) {
+        scope.launch {
+            try {
+                val url = "https://raw.githubusercontent.com/tamimaakter74666/RSA-APPS/main/version.json"
+                val client = okhttp3.OkHttpClient.Builder()
+                    .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                    .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                    .build()
+                val request = okhttp3.Request.Builder().url(url).build()
+                client.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        val bodyString = response.body?.string()
+                        if (bodyString != null) {
+                            val json = JSONObject(bodyString)
+                            
+                            val githubUrl = json.optString("websiteUrl", "")
+                            val githubBackupUrl = json.optString("backupWebsiteUrl", "")
+                            val githubAppName = json.optString("appName", "")
+                            val githubLogoUrl = json.optString("appLogoUrl", "")
+                            val githubThemeColor = json.optString("themeColor", "")
+                            val githubAppStatus = json.optString("appStatus", "")
+                            val githubLatestApkVersion = json.optString("latestApkVersion", "")
+                            
+                            val previousUrl = _configState.value.websiteUrl
+                            var updatedConfig = _configState.value
+                            
+                            if (githubUrl.isNotEmpty() && isValidHttpsUrl(githubUrl)) {
+                                updatedConfig = updatedConfig.copy(websiteUrl = githubUrl)
+                            }
+                            if (githubBackupUrl.isNotEmpty() && isValidHttpsUrl(githubBackupUrl)) {
+                                updatedConfig = updatedConfig.copy(backupWebsiteUrl = githubBackupUrl)
+                            }
+                            if (githubAppName.isNotEmpty()) {
+                                updatedConfig = updatedConfig.copy(appName = githubAppName)
+                            }
+                            if (githubLogoUrl.isNotEmpty()) {
+                                updatedConfig = updatedConfig.copy(appLogoUrl = githubLogoUrl)
+                            }
+                            if (githubThemeColor.isNotEmpty()) {
+                                updatedConfig = updatedConfig.copy(themeColor = githubThemeColor)
+                            }
+                            if (githubAppStatus.isNotEmpty()) {
+                                updatedConfig = updatedConfig.copy(
+                                    appStatus = githubAppStatus,
+                                    maintenanceMode = githubAppStatus == "Maintenance"
+                                )
+                            }
+                            if (githubLatestApkVersion.isNotEmpty()) {
+                                updatedConfig = updatedConfig.copy(latestApkVersion = githubLatestApkVersion)
+                            }
+                            
+                            if (updatedConfig != _configState.value) {
+                                persistConfigLocally(updatedConfig)
+                                _configState.value = updatedConfig
+                                Log.d("ConfigManager", "Configurations successfully hotpatched from GitHub: $updatedConfig")
+                                if (updatedConfig.websiteUrl != previousUrl) {
+                                    withContext(Dispatchers.Main) {
+                                        onUrlChanged(updatedConfig.websiteUrl)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("ConfigManager", "Failed to hotpatch configurations from GitHub: ${e.message}")
+            }
+        }
     }
 
     /**
@@ -373,6 +456,124 @@ class ConfigManager private constructor(private val context: Context) {
         } catch (e: Exception) {
             Log.e("ConfigManager", "Firestore not initialized properly: ${e.message}")
             onComplete(true, "Saved locally (Firebase Auth/Service not configured: ${e.localizedMessage})")
+        }
+    }
+
+    /**
+     * Commits configuration updates directly to the GitHub repository version.json file.
+     * Allows 100% automated dynamic updates without Firebase.
+     */
+    fun saveConfigToGithub(
+        githubToken: String,
+        websiteUrl: String,
+        backupWebsiteUrl: String,
+        appStatus: String,
+        latestApkVersion: String,
+        appName: String,
+        appLogoUrl: String,
+        onComplete: (Boolean, String?) -> Unit
+    ) {
+        scope.launch {
+            try {
+                val repo = "tamimaakter74666/RSA-APPS"
+                val filePath = "version.json"
+                val apiUrl = "https://api.github.com/repos/$repo/contents/$filePath"
+
+                val client = okhttp3.OkHttpClient.Builder()
+                    .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                    .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                    .build()
+
+                // Step 1: Fetch current file to get the correct SHA token (required for over-write updates in GitHub)
+                val getRequest = Request.Builder()
+                    .url(apiUrl)
+                    .header("Authorization", "Bearer $githubToken")
+                    .header("Accept", "application/vnd.github+json")
+                    .build()
+
+                var sha: String? = null
+                withContext(Dispatchers.IO) {
+                    client.newCall(getRequest).execute().use { response ->
+                        if (response.isSuccessful) {
+                            val body = response.body?.string()
+                            if (body != null) {
+                                val json = JSONObject(body)
+                                sha = json.optString("sha")
+                            }
+                        }
+                    }
+                }
+
+                // Step 2: Build the newly updated JSON payload structure
+                val newJson = JSONObject().apply {
+                    put("versionCode", 3)
+                    put("versionName", "1.2.0")
+                    put("downloadUrl", "https://github.com/tamimaakter74666/RSA-APPS/releases/download/latest/rimon_sports_release.apk")
+                    put("releaseNotes", "• Dynamic configurations successfully synchronized.")
+                    put("websiteUrl", websiteUrl)
+                    put("backupWebsiteUrl", backupWebsiteUrl)
+                    put("appName", appName)
+                    put("appLogoUrl", appLogoUrl)
+                    put("appStatus", appStatus)
+                }
+
+                val jsonContent = newJson.toString(2)
+                val base64Content = android.util.Base64.encodeToString(
+                    jsonContent.toByteArray(Charsets.UTF_8), 
+                    android.util.Base64.NO_WRAP
+                )
+
+                val payload = JSONObject().apply {
+                    put("message", "Auto-sync configurations from secure Admin App")
+                    put("content", base64Content)
+                    if (sha != null) {
+                        put("sha", sha)
+                    }
+                    put("branch", "main")
+                }
+
+                val mediaType = "application/json; charset=utf-8".toMediaTypeOrNull()
+                val requestBody = payload.toString().toRequestBody(mediaType)
+
+                val putRequest = Request.Builder()
+                    .url(apiUrl)
+                    .method("PUT", requestBody)
+                    .header("Authorization", "Bearer $githubToken")
+                    .header("Accept", "application/vnd.github+json")
+                    .build()
+
+                withContext(Dispatchers.IO) {
+                    client.newCall(putRequest).execute().use { response ->
+                        if (response.isSuccessful) {
+                            // Update local states as well
+                            val localMerged = _configState.value.copy(
+                                websiteUrl = websiteUrl,
+                                backupWebsiteUrl = backupWebsiteUrl,
+                                appStatus = appStatus,
+                                latestApkVersion = latestApkVersion,
+                                appName = appName,
+                                appLogoUrl = appLogoUrl,
+                                maintenanceMode = appStatus == "Maintenance"
+                            )
+                            persistConfigLocally(localMerged)
+                            _configState.value = localMerged
+
+                            withContext(Dispatchers.Main) {
+                                onComplete(true, null)
+                            }
+                        } else {
+                            val errorMsg = response.body?.string() ?: response.message
+                            withContext(Dispatchers.Main) {
+                                onComplete(false, "GitHub error (${response.code}): $errorMsg")
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    onComplete(false, "Sync Error: ${e.localizedMessage}")
+                }
+            }
         }
     }
 

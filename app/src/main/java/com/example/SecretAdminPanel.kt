@@ -80,6 +80,10 @@ fun SecretAdminPanel(
     // Tab view selection: 0 = Core, 1 = Maintenance, 2 = Brand, 3 = Broadcast
     var selectedTabIndex by remember { mutableIntStateOf(0) }
 
+    val sharedPrefs = remember { context.getSharedPreferences("rimon_config_prefs", android.content.Context.MODE_PRIVATE) }
+    var githubTokenInput by remember { mutableStateOf(sharedPrefs.getString("github_token_key", "") ?: "") }
+    var isGithubSyncing by remember { mutableStateOf(false) }
+
     // Synchronize local states when background Firebase synchronizes
     LaunchedEffect(configState) {
         websiteUrlInput = configState.websiteUrl
@@ -573,6 +577,247 @@ fun SecretAdminPanel(
                                                             )
                                                             Spacer(modifier = Modifier.width(6.dp))
                                                             Text(connectionCheckResult!!, color = checkResultColor, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                                                        }
+                                                    }
+                                                }
+
+                                                Spacer(modifier = Modifier.height(16.dp))
+
+                                                Spacer(modifier = Modifier.height(16.dp))
+
+                                                // GitHub Dynamic AutoSync Card (100% automated dynamic updates!)
+                                                Card(
+                                                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                                                    shape = RoundedCornerShape(12.dp),
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .border(1.dp, PrimaryIndigo.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                                                ) {
+                                                    var githubSyncSuccess by remember { mutableStateOf<String?>(null) }
+                                                    var githubSyncError by remember { mutableStateOf<String?>(null) }
+
+                                                    Column(modifier = Modifier.padding(14.dp)) {
+                                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Refresh,
+                                                                contentDescription = null,
+                                                               tint = SecondaryCyan,
+                                                                modifier = Modifier.size(18.dp)
+                                                            )
+                                                            Spacer(modifier = Modifier.width(8.dp))
+                                                            Text(
+                                                                text = "GITHUB AUTOMATIC DIRECT SYNC",
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = TextWhite,
+                                                                fontSize = 12.sp,
+                                                                fontFamily = FontFamily.Monospace
+                                                            )
+                                                        }
+                                                        Spacer(modifier = Modifier.height(8.dp))
+                                                        Text(
+                                                            text = "সবকিছু অটোমেটিক করতে চান? আপনার GitHub Personal Access Token (classic) টি এখানে একবার পেস্ট করে দিন। এরপর থেকে শুধুমাত্র নিচের বাটনে ক্লিক করলেই সেকেন্ডে সমস্ত ইউজারের কাছে লোগো, অ্যাপ নাম ও অন্য সকল আপডেট পৌঁছে যাবে!",
+                                                            color = TextSlate,
+                                                            fontSize = 11.sp,
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            lineHeight = 15.sp
+                                                        )
+
+                                                        Spacer(modifier = Modifier.height(12.dp))
+
+                                                        // GitHub Token Input Field
+                                                        OutlinedTextField(
+                                                            value = githubTokenInput,
+                                                            onValueChange = {
+                                                                githubTokenInput = it
+                                                                sharedPrefs.edit().putString("github_token_key", it).apply()
+                                                            },
+                                                            label = { Text("GitHub Token (Pat Classic)", color = TextSlate, fontSize = 11.sp) },
+                                                            placeholder = { Text("ghp_xxxxxxxxxxxxxxxxxxxxx", color = TextSlate.copy(alpha = 0.5f)) },
+                                                            visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                                            trailingIcon = {
+                                                                IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                                                                    Icon(
+                                                                        imageVector = if (isPasswordVisible) Icons.Default.Info else Icons.Default.Lock,
+                                                                        contentDescription = "Toggle Visibility",
+                                                                        tint = TextSlate
+                                                                    )
+                                                                }
+                                                            },
+                                                            colors = OutlinedTextFieldDefaults.colors(
+                                                                focusedBorderColor = SecondaryCyan,
+                                                                unfocusedBorderColor = BorderSlate,
+                                                                focusedTextColor = TextWhite,
+                                                                unfocusedTextColor = TextWhite
+                                                            ),
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            singleLine = true
+                                                        )
+
+                                                        Spacer(modifier = Modifier.height(10.dp))
+
+                                                        // Auto Sync Button
+                                                        Button(
+                                                            onClick = {
+                                                                if (githubTokenInput.trim().isEmpty()) {
+                                                                    githubSyncError = "দয়া করে প্রথমে আপনার GitHub Personal Access Token টি দিন!"
+                                                                    githubSyncSuccess = null
+                                                                    return@Button
+                                                                }
+                                                                if (websiteUrlInput.trim().isEmpty()) {
+                                                                    githubSyncError = "Website URL খালি রাখা সম্ভব নয়!"
+                                                                    githubSyncSuccess = null
+                                                                    return@Button
+                                                                }
+
+                                                                isGithubSyncing = true
+                                                                githubSyncSuccess = null
+                                                                githubSyncError = null
+
+                                                                configManager.saveConfigToGithub(
+                                                                    githubToken = githubTokenInput.trim(),
+                                                                    websiteUrl = websiteUrlInput,
+                                                                    backupWebsiteUrl = backupWebsiteUrlInput,
+                                                                    appStatus = appStatusInput,
+                                                                    latestApkVersion = latestApkVersionInput,
+                                                                    appName = appNameInput,
+                                                                    appLogoUrl = appLogoUrlInput
+                                                                ) { success, errMsg ->
+                                                                    isGithubSyncing = false
+                                                                    if (success) {
+                                                                        githubSyncSuccess = "⚡ আলহামদুলিল্লাহ! আপনার GitHub রিপোজিটরির version.json ফাইলটি সফলভাবে অটোমেটিক আপডেট হয়ে গেছে! ২-৫ সেকেন্ডের মাঝে সকল ইউজার আপডেট পেয়ে যাবেন!"
+                                                                    } else {
+                                                                        githubSyncError = "ত্রুটি: $errMsg\nটোকেনটি সঠিক এবং 'repo' পারমিশন আছে কিনা চেক করুন।"
+                                                                    }
+                                                                }
+                                                            },
+                                                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryIndigo),
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            shape = RoundedCornerShape(8.dp),
+                                                            enabled = !isGithubSyncing
+                                                        ) {
+                                                            if (isGithubSyncing) {
+                                                                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = TextWhite, strokeWidth = 2.dp)
+                                                                Spacer(modifier = Modifier.width(8.dp))
+                                                                Text("SYNCING WITH GITHUB...", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                            } else {
+                                                                Icon(imageVector = Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                                Spacer(modifier = Modifier.width(8.dp))
+                                                                Text("⚡ AUTOMATIC SYNC TO GITHUB", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                            }
+                                                        }
+
+                                                        // Feedbacks
+                                                        if (githubSyncSuccess != null) {
+                                                            Spacer(modifier = Modifier.height(10.dp))
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .fillMaxWidth()
+                                                                    .background(EmeraldSuccess.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
+                                                                    .border(1.dp, EmeraldSuccess.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                                                    .padding(10.dp)
+                                                            ) {
+                                                                Text(githubSyncSuccess!!, color = EmeraldSuccess, fontSize = 11.sp, lineHeight = 15.sp)
+                                                            }
+                                                        }
+
+                                                        if (githubSyncError != null) {
+                                                            Spacer(modifier = Modifier.height(10.dp))
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .fillMaxWidth()
+                                                                    .background(ErrorRed.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
+                                                                    .border(1.dp, ErrorRed.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                                                    .padding(10.dp)
+                                                            ) {
+                                                                Text(githubSyncError!!, color = ErrorRed, fontSize = 11.sp, lineHeight = 15.sp)
+                                                            }
+                                                        }
+
+                                                        Spacer(modifier = Modifier.height(14.dp))
+                                                        HorizontalDivider(color = BorderSlate.copy(alpha = 0.5f))
+                                                        Spacer(modifier = Modifier.height(10.dp))
+
+                                                        // Manual Sync Backup Option
+                                                        Text(
+                                                            text = "Alternative: Manual version.json Payload",
+                                                            color = TextWhite,
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontFamily = FontFamily.Monospace
+                                                        )
+                                                        Spacer(modifier = Modifier.height(4.dp))
+                                                        Text(
+                                                            text = "যদি অটোমেটিক সিঙ্ক ব্যবহার করতে না চান, তবে নিচের কোডটি কপি করে আপনার GitHub-এর version.json ফাইলে সরাসরি পেস্ট করে দিতে পারেন:",
+                                                            color = TextSlate,
+                                                            fontSize = 10.sp,
+                                                            lineHeight = 14.sp,
+                                                            modifier = Modifier.padding(bottom = 8.dp)
+                                                        )
+
+                                                        // Dynamic JSON state block
+                                                        val dynamicConfigJson = """{
+  "versionCode": 3,
+  "versionName": "$latestApkVersionInput",
+  "downloadUrl": "https://github.com/tamimaakter74666/RSA-APPS/releases/download/latest/rimon_sports_release.apk",
+  "releaseNotes": "• Dynamic logo & link update synchronized dynamically.",
+  "websiteUrl": "$websiteUrlInput",
+  "backupWebsiteUrl": "$backupWebsiteUrlInput",
+  "appName": "$appNameInput",
+  "appLogoUrl": "$appLogoUrlInput",
+  "appStatus": "$appStatusInput"
+}"""
+
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .fillMaxWidth()
+                                                                .background(DarkBg, RoundedCornerShape(8.dp))
+                                                                .border(1.dp, BorderSlate, RoundedCornerShape(8.dp))
+                                                                .padding(10.dp)
+                                                        ) {
+                                                            Column {
+                                                                Row(
+                                                                    modifier = Modifier.fillMaxWidth(),
+                                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                                    verticalAlignment = Alignment.CenterVertically
+                                                                ) {
+                                                                    Text(
+                                                                        text = "version.json Payload Code",
+                                                                        color = SecondaryCyan,
+                                                                        fontFamily = FontFamily.Monospace,
+                                                                        fontSize = 10.sp,
+                                                                        fontWeight = FontWeight.Bold
+                                                                    )
+                                                                    
+                                                                    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+                                                                    var isCopied by remember { mutableStateOf(false) }
+                                                                    
+                                                                    Text(
+                                                                        text = if (isCopied) "COPIED! ✓" else "COPY CODE",
+                                                                        color = if (isCopied) EmeraldSuccess else PrimaryIndigo,
+                                                                        fontFamily = FontFamily.Monospace,
+                                                                        fontSize = 10.sp,
+                                                                        fontWeight = FontWeight.Bold,
+                                                                        modifier = Modifier
+                                                                            .clickable {
+                                                                                clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(dynamicConfigJson))
+                                                                                isCopied = true
+                                                                                // Reset copy state after 2 seconds
+                                                                                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                                                                                    isCopied = false
+                                                                                }, 2000)
+                                                                            }
+                                                                            .padding(4.dp)
+                                                                    )
+                                                                }
+                                                                Spacer(modifier = Modifier.height(6.dp))
+                                                                Text(
+                                                                    text = dynamicConfigJson,
+                                                                    color = TextWhite.copy(alpha = 0.85f),
+                                                                    fontFamily = FontFamily.Monospace,
+                                                                    fontSize = 9.sp,
+                                                                    lineHeight = 13.sp
+                                                                )
+                                                            }
                                                         }
                                                     }
                                                 }
