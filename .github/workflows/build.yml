@@ -15,6 +15,8 @@ jobs:
   build:
     name: Build & Verify Android App
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Source Code
@@ -93,3 +95,57 @@ jobs:
           name: rimon_sports_release_apk
           path: build-outputs/rimon_sports_release.apk
           if-no-files-found: warn
+
+      - name: Commit and Push Compiled APK
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        run: |
+          if [ -f build-outputs/rimon_sports_debug.apk ]; then
+            # Copy APKs to repo root
+            cp build-outputs/rimon_sports_debug.apk app-debug.apk
+            cp build-outputs/rimon_sports_release.apk app-release.apk
+            
+            # Create zip backups of the APKs
+            zip -j app-debug.zip app-debug.apk
+            zip -j app-release.zip app-release.apk
+            
+            # Setup Git config for automated bot
+            git config --global user.name "github-actions[bot]"
+            git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            
+            # Git add the updated files
+            git add app-debug.apk app-debug.zip app-release.apk app-release.zip
+            
+            # Commit and push only if changes exist
+            if ! git diff-index --quiet HEAD --; then
+              git commit -m "chore: auto-publish latest actions build apk and zip [skip ci]"
+              git push origin HEAD:${{ github.ref }}
+              echo "Successfully pushed latest APK back to repository!"
+            else
+              echo "No functional changes to commit."
+            fi
+          else
+            echo "Error: Built APK was not found, skipping publish step."
+          fi
+
+      - name: Create or Update Latest Rolling Release
+        uses: softprops/action-gh-release@v2
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        with:
+          tag_name: latest
+          name: "Latest Automated Build"
+          body: |
+            ### Latest System Builds
+            This release contains the absolute latest fully optimized built binaries compiled automatically by GitHub Actions on every commit to the main/master branch.
+            
+            - **Primary Release APK (Standard Install - 13.1 MB)**: [rimon_sports_release.apk](https://github.com/tamimaakter74666/RSA-APPS/releases/download/latest/rimon_sports_release.apk)
+            - **Backup Release Zip**: [app-release.zip](https://github.com/tamimaakter74666/RSA-APPS/releases/download/latest/app-release.zip)
+            - **Developer Debug APK (17.7 MB)**: [rimon_sports_debug.apk](https://github.com/tamimaakter74666/RSA-APPS/releases/download/latest/rimon_sports_debug.apk)
+          draft: false
+          prerelease: true
+          files: |
+            build-outputs/rimon_sports_release.apk
+            build-outputs/rimon_sports_debug.apk
+            app-release.zip
+            app-debug.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

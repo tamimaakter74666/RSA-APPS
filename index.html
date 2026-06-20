@@ -155,8 +155,8 @@
                 <div class="mt-4 p-3 rounded-2xl bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/10 text-center">
                     <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-normal">
                         ব্রাউজারে ডাউনলোডে সমস্যা হলে:
-                        <a href="./app-debug.apk" download="rimon_sports.apk" class="font-bold underline text-brand-crimson dark:text-amber-300 hover:opacity-80 mx-1">সরাসরি APK লিংক</a> বা
-                        <a href="./app-debug.zip" download="rimon_sports.zip" class="font-bold underline text-brand-crimson dark:text-amber-300 hover:opacity-80 mx-1">ZIP ফাইল</a>
+                        <a id="inline-apk-link" href="./app-debug.apk" download="rimon_sports.apk" class="font-bold underline text-brand-crimson dark:text-amber-300 hover:opacity-80 mx-1">সরাসরি APK লিংক</a> বা
+                        <a id="inline-zip-link" href="./app-debug.zip" download="rimon_sports.zip" class="font-bold underline text-brand-crimson dark:text-amber-300 hover:opacity-80 mx-1">ZIP ফাইল</a>
                     </p>
                 </div>
 
@@ -561,12 +561,26 @@
                     btnTextSpan.innerText = 'ডাউনলোড করুন (APK ফাইল)';
                 }
                 console.log('Local, Sandboxed or Custom Domain environment detected. Redirected APK download button to safe file: ./app-debug.apk');
+            } else {
+                // Production environment - Route directly to the automated GitHub Release CDN which bypasses all cache and latency issues entirely!
+                const rawApkUrl = (data && data.downloadUrl) ? data.downloadUrl : 'https://github.com/tamimaakter74666/RSA-APPS/releases/download/latest/rimon_sports_release.apk';
+                const rawZipUrl = 'https://github.com/tamimaakter74666/RSA-APPS/releases/download/latest/app-release.zip';
+                
+                if (apkBtn) apkBtn.href = rawApkUrl;
+                
+                const inlineApk = document.getElementById('inline-apk-link');
+                if (inlineApk) inlineApk.href = rawApkUrl;
+                
+                const inlineZip = document.getElementById('inline-zip-link');
+                if (inlineZip) inlineZip.href = rawZipUrl;
+                
+                const altZip = document.getElementById('alt-zip-btn');
+                if (altZip) altZip.href = rawZipUrl;
+                
+                console.log('Production environment: routed download buttons directly to high-speed GitHub Release CDN!');
             }
 
             if (data) {
-                if (!isLocalOrPre && data.downloadUrl) {
-                    apkBtn.href = data.downloadUrl;
-                }
                 if (data.versionName) {
                     listVername.innerText = `ভার্সন: v${data.versionName}`;
                     tabVername.innerText = `v${data.versionName}`;
