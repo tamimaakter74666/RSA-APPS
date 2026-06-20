@@ -1,0 +1,88 @@
+name: Build and Release Signed APK
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers on tags like v1.0, v1.0.0, dev-v2.1 etc.
+
+jobs:
+  build:
+    name: Build Signed Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Grant Execute Permission to Gradlew
+        run: chmod +x gradlew
+
+      - name: Decode Android Release Keystore
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "ERROR: GitHub Secret 'RELEASE_KEYSTORE_BASE64' is not defined. Cannot build signed release."
+            exit 1
+          fi
+          # Decode the base64 keystore and write it safely inside the project root
+          echo "$RELEASE_KEYSTORE_BASE64" | base64 --decode > my-upload-key.jks
+          echo "Release keystore decoded successfully."
+
+      - name: Build Signed Release APK
+        env:
+          KEYSTORE_PATH: "my-upload-key.jks"
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Verify Signed APK Existence
+        run: |
+          # Locate built APK and make sure it exists
+          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+             echo "ERROR: Could not find built release APK."
+             exit 1
+          fi
+          echo "Found release APK at: $APK_PATH"
+          echo "RELEASE_APK_PATH=$APK_PATH" >> $GITHUB_ENV
+
+      - name: Rename APK for Release
+        run: |
+          # Strip the 'refs/tags/' prefix to get the clean tag name (e.g. v1.0.0)
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          NEW_APK_NAME="rimon_sports_${TAG_NAME}.apk"
+          mv ${{ env.RELEASE_APK_PATH }} $NEW_APK_NAME
+          echo "Renamed release APK to: $NEW_APK_NAME"
+          echo "FINAL_APK_NAME=$NEW_APK_NAME" >> $GITHUB_ENV
+
+      - name: Create structurally safe ZIP backup archive of the APK
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          NEW_ZIP_NAME="rimon_sports_${TAG_NAME}.zip"
+          zip -j $NEW_ZIP_NAME ${{ env.FINAL_APK_NAME }}
+          echo "Created ZIP format of APK: $NEW_ZIP_NAME"
+          echo "FINAL_ZIP_NAME=$NEW_ZIP_NAME" >> $GITHUB_ENV
+
+      - name: Create GitHub Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ env.FINAL_APK_NAME }}
+            ${{ env.FINAL_ZIP_NAME }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
