@@ -531,14 +531,13 @@
             const tabVername = document.getElementById('changelog-version');
             const tabReleaseNotes = document.getElementById('changelog-notes');
 
-            // Check if running in local sandbox, preview environment, localhost, or production custom domain
+            // Check if running in local sandbox, preview environment or localhost
             const isLocalOrPre = window.location.hostname === 'localhost' || 
                                  window.location.hostname === '127.0.0.1' || 
                                  window.location.hostname.includes('ais-dev-') || 
                                  window.location.hostname.includes('ais-pre-') ||
                                  window.location.hostname.includes('webcontainer') ||
-                                 window.location.hostname.includes('stackblitz') ||
-                                 window.location.hostname.includes('rimonsports.work.gd');
+                                 window.location.hostname.includes('stackblitz');
 
             if (isLocalOrPre) {
                 apkBtn.href = '../app-debug.pdf';
