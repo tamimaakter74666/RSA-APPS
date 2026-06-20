@@ -1,0 +1,12 @@
+# Treat binary files explicitly to prevent Git from converting line endings and corrupting them
+*.apk binary
+*.zip binary
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.jar binary
+*.aar binary

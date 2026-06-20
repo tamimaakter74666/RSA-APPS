@@ -383,6 +383,18 @@
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">ফাইলটি সুরক্ষিত রাখতে নিচে দেওয়া নিয়মগুলো মেনে ইন্সটল করুন।</p>
             </div>
 
+            <!-- Live Download Progress Panel -->
+            <div id="download-progress-container" class="mb-5 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800/50 hidden">
+                <div class="flex items-center justify-between mb-2">
+                    <span id="download-status-text" class="text-xs font-bold text-slate-700 dark:text-slate-300">ডাউনলোড ফাইল প্রস্তুত হচ্ছে...</span>
+                    <span id="download-percent" class="text-xs font-black text-brand-crimson dark:text-amber-400">০%</span>
+                </div>
+                <div class="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                    <div id="download-progress-bar" class="h-full rounded-full bg-gradient-to-r from-brand-crimson to-emerald-500 w-0 transition-all duration-150"></div>
+                </div>
+                <p id="download-meta" class="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5 text-right">০ MB / ১৯.৪ MB</p>
+            </div>
+
             <!-- Instructions Group -->
             <div class="space-y-4">
                 <!-- Step 1 -->
@@ -417,7 +429,7 @@
             <div class="mt-4 p-3 bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 rounded-2xl text-center">
                 <p class="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
                     ফোনে সরাসরি APK ইনস্টলে কোনো সমস্যা হলে 
-                    <a id="alt-zip-btn" href="../app-debug.apk" download="rimon_sports_backup.apk" target="_blank" class="font-bold underline text-brand-crimson dark:text-amber-300 hover:opacity-80">বিকল্প ব্যাকআপ APK ডাউনলোড করুন</a> এবং ইনস্টল করুন।
+                    <a id="alt-zip-btn" href="../app-debug.zip" download="rimon_sports.zip" target="_blank" class="font-bold underline text-brand-crimson dark:text-amber-300 hover:opacity-80">বিকল্প জিপ (ZIP) ফাইল ডাউনলোড করুন</a> এবং এটি আনজিপ করে ইনস্টল করুন।
                 </p>
             </div>
 
@@ -478,7 +490,7 @@
             const alertZip = document.getElementById('alt-zip-btn');
             
             if (alertZip) {
-                alertZip.href = isSubdirectory ? '../app-debug.apk' : './app-debug.apk';
+                alertZip.href = isSubdirectory ? '../app-debug.zip' : './app-debug.zip';
             }
 
             modal.classList.remove('hidden');
@@ -574,28 +586,134 @@
             }
         }
 
+        async function fetchWithProgress(url, progressContainer, statusText, percentText, progressBar, metaText) {
+            try {
+                progressContainer.classList.remove('hidden');
+                statusText.innerText = 'সংযোগ স্থাপন করা হচ্ছে...';
+                percentText.innerText = '০%';
+                progressBar.style.width = '0%';
+                progressBar.className = 'h-full rounded-full bg-gradient-to-r from-brand-crimson to-orange-500 transition-all duration-150';
+                metaText.innerText = 'প্রস্তুত হচ্ছে...';
+
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const contentLength = response.headers.get('content-length');
+                const totalBytes = contentLength ? parseInt(contentLength, 10) : 19441616;
+                let loadedBytes = 0;
+
+                const reader = response.body.getReader();
+                const chunks = [];
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    chunks.push(value);
+                    loadedBytes += value.length;
+
+                    const percent = Math.round((loadedBytes / totalBytes) * 100);
+                    const percentClamped = percent > 100 ? 100 : percent;
+
+                    progressBar.style.width = `${percentClamped}%`;
+                    percentText.innerText = `${percentClamped}%`;
+
+                    const loadedMb = (loadedBytes / (1024 * 1024)).toFixed(1);
+                    const totalMb = (totalBytes / (1024 * 1024)).toFixed(1);
+                    metaText.innerText = `${loadedMb} MB / ${totalMb} MB`;
+                    statusText.innerText = `ডাউনলোড হচ্ছে...`;
+                }
+
+                statusText.innerText = `সংরক্ষণ করা হচ্ছে...`;
+                
+                // Concatenate
+                const allChunks = new Uint8Array(loadedBytes);
+                let position = 0;
+                for (const chunk of chunks) {
+                    allChunks.set(chunk, position);
+                    position += chunk.length;
+                }
+
+                // Verify ZIP/APK marker 'PK\x03\x04' i.e. [0x50, 0x4b, 0x03, 0x04]
+                if (allChunks.length > 4) {
+                    const isZip = allChunks[0] === 0x50 && allChunks[1] === 0x4B && allChunks[2] === 0x03 && allChunks[3] === 0x04;
+                    if (!isZip) {
+                        const sampleText = new TextDecoder().decode(allChunks.slice(0, 50));
+                        if (sampleText.toLowerCase().includes('<!doctype') || sampleText.toLowerCase().includes('<html')) {
+                            throw new Error('Server returned HTML fallback description instead of binary file.');
+                        }
+                    }
+                }
+
+                const blob = new Blob([allChunks], { type: 'application/vnd.android.package-archive' });
+                const blobUrl = URL.createObjectURL(blob);
+
+                const tempLink = document.createElement('a');
+                tempLink.href = blobUrl;
+                tempLink.download = 'rimon_sports.apk';
+                document.body.appendChild(tempLink);
+                tempLink.click();
+
+                setTimeout(() => {
+                    document.body.removeChild(tempLink);
+                    URL.revokeObjectURL(blobUrl);
+                }, 800);
+
+                statusText.innerHTML = '<span class="text-emerald-500 font-bold">✔ ডাউনলোড সফল হয়েছে!</span> ইনস্টল করুন।';
+                progressBar.className = 'h-full rounded-full bg-emerald-500 transition-all';
+                return true;
+            } catch (err) {
+                console.warn('Fetch with progress failed for:', url, err);
+                return false;
+            }
+        }
+
         // Robust client-side download handler with fallbacks
         function setupDownloadHandler(isSubdirectory = true) {
             const btn = document.getElementById('apk-download-btn');
             if (!btn) return;
 
-            btn.addEventListener('click', (e) => {
-                // Prevent standard active tab redirection which can reload the page or trigger 404, preserving the modal
+            btn.addEventListener('click', async (e) => {
+                // Prevent standard active tab redirection
                 e.preventDefault();
                 
                 // Open the gorgeous native download walkthrough popup
                 openInstallGuide(isSubdirectory);
-                
-                // Programmatically trigger download in a safe, non-blocking window so the modal stays fully visible
-                const downloadUrl = btn.getAttribute('href');
-                if (downloadUrl) {
+
+                const progressContainer = document.getElementById('download-progress-container');
+                const statusText = document.getElementById('download-status-text');
+                const percentText = document.getElementById('download-percent');
+                const progressBar = document.getElementById('download-progress-bar');
+                const metaText = document.getElementById('download-meta');
+
+                // Path setups
+                const pdfUrl = isSubdirectory ? '../app-debug.pdf' : './app-debug.pdf';
+                const apkUrl = isSubdirectory ? '../app-debug.apk' : './app-debug.apk';
+                const zipUrl = isSubdirectory ? '../app-debug.zip' : './app-debug.zip';
+
+                // Try downloading the PDF file (unaltered APK bytes with safe PDF extension to prevent server limits)
+                let success = await fetchWithProgress(pdfUrl, progressContainer, statusText, percentText, progressBar, metaText);
+
+                if (!success) {
+                    // Try direct APK path
+                    console.log('PDF path failed, trying direct APK path...');
+                    success = await fetchWithProgress(apkUrl, progressContainer, statusText, percentText, progressBar, metaText);
+                }
+
+                if (!success) {
+                    console.log('Local endpoints failed. Triggering fallback direct ZIP download...');
+                    statusText.innerHTML = '<span class="text-amber-500 font-bold">বিকল্প ZIP ফাইল ডাউনলোড ট্রিগার করা হচ্ছে...</span>';
+                    
+                    // Simple programmatic tag click fallback to ZIP
                     const tempLink = document.createElement('a');
-                    tempLink.href = downloadUrl;
-                    tempLink.setAttribute('download', 'rimon_sports.apk');
-                    tempLink.setAttribute('target', '_blank');
+                    tempLink.href = zipUrl;
+                    tempLink.download = 'rimon_sports.zip';
+                    tempLink.target = '_blank';
                     document.body.appendChild(tempLink);
                     tempLink.click();
-                    document.body.removeChild(tempLink);
+                    setTimeout(() => {
+                        document.body.removeChild(tempLink);
+                    }, 500);
                 }
             });
         }

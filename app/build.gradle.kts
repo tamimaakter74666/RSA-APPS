@@ -1,3 +1,8 @@
+import java.io.File
+import java.io.FileOutputStream
+import java.util.zip.ZipOutputStream
+import java.util.zip.ZipEntry
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
@@ -140,13 +145,31 @@ tasks.register("copyApkToLandingPages") {
   doLast {
     val apkFile = inputApk.get().asFile
     if (apkFile.exists()) {
+      println("Source APK file size: ${apkFile.length()} bytes")
+      // Copy files as binary
       apkFile.copyTo(dest1, overwrite = true)
       apkFile.copyTo(dest2, overwrite = true)
-      apkFile.copyTo(dest1Zip, overwrite = true)
-      apkFile.copyTo(dest2Zip, overwrite = true)
       apkFile.copyTo(dest1Pdf, overwrite = true)
       apkFile.copyTo(dest2Pdf, overwrite = true)
-      println("Successfully copied APK, ZIP and PDF format to both locations: $dest1 and $dest2")
+      
+      // Create structurally valid ZIP archive containing the APK file
+      fun createRealZip(sourceFile: File, zipFile: File) {
+        FileOutputStream(zipFile).use { fos ->
+          ZipOutputStream(fos).use { zos ->
+            val entry = ZipEntry("app-debug.apk")
+            zos.putNextEntry(entry)
+            sourceFile.inputStream().use { fis ->
+              fis.copyTo(zos)
+            }
+            zos.closeEntry()
+          }
+        }
+      }
+      
+      createRealZip(apkFile, dest1Zip)
+      createRealZip(apkFile, dest2Zip)
+      
+      println("Successfully copied APK, PDF, and created a real ZIP archive at: $dest1 (size: ${dest1.length()}) and $dest1Zip (size: ${dest1Zip.length()})")
     } else {
       println("Error: APK file not found at ${apkFile.absolutePath}")
     }
