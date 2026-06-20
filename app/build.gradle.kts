@@ -2,6 +2,21 @@ import java.io.File
 import java.io.FileOutputStream
 import java.util.zip.ZipOutputStream
 import java.util.zip.ZipEntry
+import java.util.Base64
+
+// Automatically decode debug.keystore.base64 if debug.keystore does not exist
+val base64File = file("${rootDir}/debug.keystore.base64")
+val targetKeystore = file("${rootDir}/debug.keystore")
+if (base64File.exists() && !targetKeystore.exists()) {
+  try {
+    val base64Content = base64File.readText().trim()
+    val decodedBytes = Base64.getDecoder().decode(base64Content)
+    targetKeystore.writeBytes(decodedBytes)
+    println("Successfully decoded debug.keystore from debug.keystore.base64!")
+  } catch (e: Exception) {
+    println("Error decoding debug.keystore: ${e.message}")
+  }
+}
 
 plugins {
   alias(libs.plugins.android.application)

@@ -39,9 +39,17 @@ jobs:
       - name: Grant Execute Permission to Gradlew
         run: chmod +x gradlew
 
-      - name: Generate Debug Keystore
+      - name: Decode Debug Keystore
         run: |
-          keytool -genkey -v -keystore app/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          if [ -f debug.keystore.base64 ]; then
+            base64 --decode debug.keystore.base64 > debug.keystore
+            cp debug.keystore app/debug.keystore
+            echo "Successfully decoded consistent Debug Keystore from base64 into both root and app folders."
+          else
+            echo "Warning: debug.keystore.base64 not found, falling back to auto-generating a temporary key."
+            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+            cp debug.keystore app/debug.keystore
+          fi
 
       - name: Decode Android Release Keystore (Optional Fallback)
         env:
