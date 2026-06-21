@@ -138,6 +138,7 @@ class MainActivity : ComponentActivity() {
                 var showAdminPanel by remember { mutableStateOf(false) }
                 var bypassOfflineCheck by remember { mutableStateOf(false) }
                 var connectivityRefreshTrigger by remember { mutableStateOf(0) }
+                var showExitConfirmationDialog by remember { mutableStateOf(false) }
 
                 if (showAdminPanel) {
                     SecretAdminPanel(onDismissRequest = { showAdminPanel = false })
@@ -151,9 +152,7 @@ class MainActivity : ComponentActivity() {
                 val coroutineScope = rememberCoroutineScope()
                 val webViewRef = remember { mutableStateOf<WebView?>(null) }
 
-                var lastBackPressTime by remember { mutableStateOf(0L) }
-
-                // Clean Hardware Back Navigation: Back button navigates back in history. If we can't go back further, we go to the home URL of the web app ("back a asle o web ap ar home asbe"). If currently on the home URL, double-tap back to exit.
+                // Clean Hardware Back Navigation: Back button navigates back in history. If we can't go back further, we go to the home URL of the web app. If currently on the home URL, show beautiful Exit Confirmation dialog.
                 BackHandler(enabled = true) {
                     val webView = webViewRef.value
                     if (webView != null) {
@@ -165,23 +164,11 @@ class MainActivity : ComponentActivity() {
                             if (currentUrl.isNotEmpty() && currentUrl != homeUrl && currentUrl != "$homeUrl/") {
                                 webView.loadUrl(urlState)
                             } else {
-                                val currentTime = System.currentTimeMillis()
-                                if (currentTime - lastBackPressTime < 2000) {
-                                    (context as? android.app.Activity)?.finish()
-                                } else {
-                                    lastBackPressTime = currentTime
-                                    android.widget.Toast.makeText(context, "Press back again to exit", android.widget.Toast.LENGTH_SHORT).show()
-                                }
+                                showExitConfirmationDialog = true
                             }
                         }
                     } else {
-                        val currentTime = System.currentTimeMillis()
-                        if (currentTime - lastBackPressTime < 2000) {
-                            (context as? android.app.Activity)?.finish()
-                        } else {
-                            lastBackPressTime = currentTime
-                            android.widget.Toast.makeText(context, "Press back again to exit", android.widget.Toast.LENGTH_SHORT).show()
-                        }
+                        showExitConfirmationDialog = true
                     }
                 }
 
@@ -522,6 +509,52 @@ class MainActivity : ComponentActivity() {
                                              Text("Cancel", color = Color.Gray)
                                          }
                                      }
+                                }
+                            )
+                        }
+
+                        // Beautiful App Exit Confirmation Dialog
+                        if (showExitConfirmationDialog) {
+                            AlertDialog(
+                                onDismissRequest = { showExitConfirmationDialog = false },
+                                icon = {
+                                    Icon(
+                                        imageVector = Icons.Default.ExitToApp,
+                                        contentDescription = "Exit App",
+                                        tint = Purple40
+                                    )
+                                },
+                                shape = RoundedCornerShape(28.dp),
+                                containerColor = BentoSecondaryContainer,
+                                title = {
+                                    Text(
+                                        text = "অ্যাপ বন্ধ নিশ্চিতকরণ",
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = BentoDarkText
+                                    )
+                                },
+                                text = {
+                                    Text(
+                                        text = "আপনি কি নিশ্চিতভাবে Rimon Sports অ্যাপ থেকে বের হতে চান?",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = BentoMutedText
+                                    )
+                                },
+                                dismissButton = {
+                                    TextButton(
+                                        onClick = { showExitConfirmationDialog = false }
+                                    ) {
+                                        Text("না", color = Purple40, fontWeight = FontWeight.Bold)
+                                    }
+                                },
+                                confirmButton = {
+                                    Button(
+                                        onClick = { (context as? android.app.Activity)?.finish() },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Purple40)
+                                    ) {
+                                        Text("হ্যাঁ", color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
                                 }
                             )
                         }
