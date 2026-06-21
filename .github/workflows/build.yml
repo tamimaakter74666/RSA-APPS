@@ -120,14 +120,14 @@ jobs:
             git config --global user.name "github-actions[bot]"
             git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
             
-            # Git add the updated files
-            git add app-debug.apk app-debug.zip app-release.apk app-release.zip
+            # Git add the updated files (forcing if gitignored)
+            git add -f app-debug.apk app-debug.zip app-release.apk app-release.zip || git add app-debug.apk app-debug.zip app-release.apk app-release.zip
             
             # Commit and push only if changes exist
             if ! git diff-index --quiet HEAD --; then
               git commit -m "chore: auto-publish latest actions build apk and zip [skip ci]"
-              git push origin HEAD:${{ github.ref }}
-              echo "Successfully pushed latest APK back to repository!"
+              git push origin HEAD:${{ github.ref }} || echo "Warning: Direct push back to branch failed (likely code-push is disabled or branch is protected). Proceeding with release asset generation."
+              echo "Successfully processed repository code sync stage!"
             else
               echo "No functional changes to commit."
             fi

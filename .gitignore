@@ -16,3 +16,12 @@
 local.properties
 .env
 debug.keystore
+
+# Ignore generated build outputs and binaries
+/app-debug.apk
+/app-debug.zip
+/app-debug.pdf
+/landing_page/app-debug.apk
+/landing_page/app-debug.zip
+/landing_page/app-debug.pdf
+

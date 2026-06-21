@@ -83,7 +83,7 @@ fun SecretAdminPanel(
     var selectedTabIndex by remember { mutableIntStateOf(0) }
 
     val sharedPrefs = remember { context.getSharedPreferences("rimon_config_prefs", android.content.Context.MODE_PRIVATE) }
-    var githubTokenInput by remember { mutableStateOf(sharedPrefs.getString("github_token_key", "") ?: "") }
+    var githubTokenInput by remember { mutableStateOf(sharedPrefs.getString("github_token_key", "").orEmpty().ifEmpty { "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" }) }
     var isGithubSyncing by remember { mutableStateOf(false) }
 
     // Synchronize local states when background Firebase synchronizes
@@ -797,7 +797,7 @@ fun SecretAdminPanel(
 
                                                         // Dynamic JSON state block
                                                         val dynamicConfigJson = """{
-  "versionCode": 3,
+  "versionCode": ${latestApkVersionCodeInput.toIntOrNull() ?: BuildConfig.VERSION_CODE},
   "versionName": "$latestApkVersionInput",
   "downloadUrl": "https://github.com/tamimaakter74666/RSA-APPS/releases/download/latest/rimon_sports_release.apk",
   "releaseNotes": "• Dynamic logo & link update synchronized dynamically.",

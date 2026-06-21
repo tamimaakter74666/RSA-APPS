@@ -92,9 +92,37 @@ class MainActivity : ComponentActivity() {
         filePathCallback = null
     }
 
+    override fun onResume() {
+        super.onResume()
+        try {
+            val apkFile = File(cacheDir, "rimon_sports_update.apk")
+            if (apkFile.exists() && apkFile.length() > 0) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    if (packageManager.canRequestPackageInstalls()) {
+                        installApk(this, apkFile)
+                    }
+                } else {
+                    installApk(this, apkFile)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("WebViewApp", "Error in onResume apk installation check: ${e.message}")
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Clean up stale update APK so the new app instance is fresh and clean
+        try {
+            val apkFile = File(cacheDir, "rimon_sports_update.apk")
+            if (apkFile.exists()) {
+                apkFile.delete()
+            }
+        } catch (e: Exception) {
+            // ignore
+        }
 
         // Pre-emptively create WebView internal cache directories synchronously to guarantee they exist before Chromium starts initializing
         preProvisionWebViewCache(this)
@@ -334,7 +362,7 @@ class MainActivity : ComponentActivity() {
                                 containerColor = BentoSecondaryContainer,
                                 title = {
                                     Text(
-                                        text = "Update Available",
+                                        text = "নতুন আপডেট উপলব্ধ আছে! ⚡",
                                         fontWeight = FontWeight.Bold,
                                         color = BentoDarkText
                                     )
@@ -342,21 +370,22 @@ class MainActivity : ComponentActivity() {
                                 text = {
                                     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                                         Text(
-                                            text = "A new version of the app (v${updateInfo!!.versionName}) is available.",
+                                            text = "অ্যাপটির একটি নতুন সংস্করণ (v${updateInfo!!.versionName}) রিলিজ হয়েছে।",
                                             style = MaterialTheme.typography.bodyMedium,
+                                            color = BentoDarkText,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Text(
+                                            text = "নতুন কি আছে (Release Notes):\n${updateInfo!!.releaseNotes}",
+                                            style = MaterialTheme.typography.bodySmall,
                                             color = BentoMutedText
                                         )
                                         Spacer(modifier = Modifier.height(12.dp))
                                         Text(
-                                            text = "Release Notes: ${updateInfo!!.releaseNotes}",
+                                            text = "আপডেটটি সরাসরি অ্যাপের ভেতরেই অতি নিরাপদে ও দ্রুত ডাউনলোড হয়ে ইন্সটল হবে। কোনো ব্রাউজারে বা লিংকে গিয়ে খোঁজাখুঁজি করার প্রয়োজন নেই!",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = BentoMutedText
-                                        )
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text(
-                                            text = "The update will be downloaded securely directly in-app and installed automatically. This is safe, secure, and fast.",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            fontWeight = FontWeight.SemiBold,
+                                            fontWeight = FontWeight.Medium,
                                             color = Purple40
                                         )
                                     }
@@ -380,7 +409,7 @@ class MainActivity : ComponentActivity() {
                                                             if (!context.packageManager.canRequestPackageInstalls()) {
                                                                 android.widget.Toast.makeText(
                                                                     context,
-                                                                    "Please allow Rimon Sports to install apps from unknown sources, then go back to finish installation.",
+                                                                    "দয়া করে Rimon Sports কে অটোমেটিক ইন্সটল করার পারমিশন দিন এবং ইন্সটল সম্পন্ন করতে ফিরে আসুন।",
                                                                     android.widget.Toast.LENGTH_LONG
                                                                 ).show()
                                                                 try {
@@ -394,15 +423,15 @@ class MainActivity : ComponentActivity() {
                                                                 }
                                                             } else {
                                                                 installApk(context, apkFile)
-                                                             }
-                                                         } else {
-                                                             installApk(context, apkFile)
-                                                         }
-                                                     },
-                                                     onError = { error ->
-                                                         updateErrorMessage = error
-                                                     }
-                                                 )
+                                                            }
+                                                        } else {
+                                                            installApk(context, apkFile)
+                                                        }
+                                                    },
+                                                    onError = { error ->
+                                                        updateErrorMessage = error
+                                                    }
+                                                )
                                             } catch (e: Exception) {
                                                 Log.e("WebViewApp", "Failed to open update url: ${e.message}")
                                             }
@@ -413,7 +442,7 @@ class MainActivity : ComponentActivity() {
                                             contentColor = Color.White
                                         )
                                     ) {
-                                        Text("Download & Update")
+                                        Text("হ্যাঁ, এখনই আপডেট করুন")
                                     }
                                 },
                                 dismissButton = {
@@ -422,7 +451,7 @@ class MainActivity : ComponentActivity() {
                                             showUpdateDialog = false 
                                         }
                                     ) {
-                                        Text(text = "Later", color = Purple40)
+                                        Text(text = "পরে করবো", color = Purple40)
                                     }
                                 }
                             )
@@ -435,7 +464,7 @@ class MainActivity : ComponentActivity() {
                                 containerColor = BentoSecondaryContainer,
                                 title = {
                                     Text(
-                                        text = "Downloading Update",
+                                        text = "আপডেট ডাউনলোড হচ্ছে... 📥",
                                         fontWeight = FontWeight.Bold,
                                         color = BentoDarkText
                                     )
@@ -448,7 +477,7 @@ class MainActivity : ComponentActivity() {
                                          horizontalAlignment = Alignment.CenterHorizontally
                                      ) {
                                          Text(
-                                             text = "Please wait while the update (v${updateInfo?.versionName}) is being downloaded securely to your device...",
+                                             text = "অনুগ্রহ করে কিছুক্ষণ অপেক্ষা করুন। অ্যাপের নতুন সংস্করণটি (v${updateInfo?.versionName}) অতি নিরাপদে ডাউনলোড হচ্ছে...",
                                              style = MaterialTheme.typography.bodyMedium,
                                              color = BentoMutedText,
                                              modifier = Modifier.padding(bottom = 16.dp)
@@ -477,7 +506,7 @@ class MainActivity : ComponentActivity() {
                                          if (updateErrorMessage != null) {
                                              Spacer(modifier = Modifier.height(8.dp))
                                              Text(
-                                                 text = "Error: $updateErrorMessage",
+                                                 text = "ত্রুটি: $updateErrorMessage",
                                                  color = MaterialTheme.colorScheme.error,
                                                  style = MaterialTheme.typography.bodySmall
                                              )
@@ -495,9 +524,9 @@ class MainActivity : ComponentActivity() {
                                              colors = ButtonDefaults.buttonColors(
                                                  containerColor = Purple40,
                                                  contentColor = Color.White
-                                             )
+                                              )
                                          ) {
-                                             Text("Close & Retry")
+                                             Text("বন্ধ করুন এবং পুনরায় চেষ্টা করুন")
                                          }
                                      } else {
                                          TextButton(
@@ -506,7 +535,7 @@ class MainActivity : ComponentActivity() {
                                                  updateDownloadProgress = 0f
                                              }
                                          ) {
-                                             Text("Cancel", color = Color.Gray)
+                                             Text("বাতিল করুন", color = Color.Gray)
                                          }
                                      }
                                 }
@@ -655,66 +684,50 @@ fun preProvisionWebViewCache(context: android.content.Context) {
         for (relPath in candidatePaths) {
             val baseCacheDir = File(cacheDir, relPath)
             
-            // Provision JS Cache directory
+            // Provision JS Cache directory safely
             val jsDir = File(baseCacheDir, "js")
             if (!jsDir.exists()) {
                 val success = jsDir.mkdirs()
                 Log.d("WebViewApp", "Pre-created jsDir at $relPath: $success")
             } else {
-                // Delete old `.keep` file if exists to prevent Chromium cache corruption
-                val jsKeep = File(jsDir, ".keep")
-                if (jsKeep.exists()) {
-                    jsKeep.delete()
+                // Delete any corruptive files inside JS directory
+                listOf(".keep", ".placeholder").forEach { name ->
+                    val corruptiveFile = File(jsDir, name)
+                    if (corruptiveFile.exists()) {
+                        corruptiveFile.delete()
+                    }
                 }
-            }
-            // Ensure folder contains a solid placeholder so Chromium or system cleaners don't delete empty directories
-            try {
-                val jsPlaceholder = File(jsDir, ".placeholder")
-                if (!jsPlaceholder.exists()) {
-                    jsPlaceholder.createNewFile()
-                }
-            } catch (e: Exception) {
-                // Silent catch
             }
 
-            // Provision WASM Cache directory
+            // Provision WASM Cache directory safely
             val wasmDir = File(baseCacheDir, "wasm")
             if (!wasmDir.exists()) {
                 val success = wasmDir.mkdirs()
                 Log.d("WebViewApp", "Pre-created wasmDir at $relPath: $success")
             } else {
-                // Delete old `.keep` file if exists to prevent Chromium cache corruption
-                val wasmKeep = File(wasmDir, ".keep")
-                if (wasmKeep.exists()) {
-                    wasmKeep.delete()
+                // Delete any corruptive files inside WASM directory
+                listOf(".keep", ".placeholder").forEach { name ->
+                    val corruptiveFile = File(wasmDir, name)
+                    if (corruptiveFile.exists()) {
+                        corruptiveFile.delete()
+                    }
                 }
-            }
-            // Ensure folder contains a solid placeholder so Chromium or system cleaners don't delete empty directories
-            try {
-                val wasmPlaceholder = File(wasmDir, ".placeholder")
-                if (!wasmPlaceholder.exists()) {
-                    wasmPlaceholder.createNewFile()
-                }
-            } catch (e: Exception) {
-                // Silent catch
             }
         }
-        Log.d("WebViewApp", "Pre-provisioned all possible WebView Code Cache paths successfully.")
+        Log.d("WebViewApp", "Pre-provisioned all possible WebView Code Cache paths successfully without placeholders.")
     } catch (e: Exception) {
          Log.e("WebViewApp", "Failed to pre-provision WebView cache directories: ${e.message}")
     }
 }
 
 fun startWebViewCacheMonitoring(context: android.content.Context, scope: kotlinx.coroutines.CoroutineScope) {
+    // Highly optimized passive monitor (no-op or single run) to prevent disk thrashing & Chromium race conditions
     scope.launch(Dispatchers.IO) {
-        while (true) {
-            try {
-                preProvisionWebViewCache(context)
-            } catch (e: Exception) {
-                // Ignore silent errors
-            }
-            // Check every 15 seconds instead of 25-250ms to prevent CPU/IO starvation and deployment timeouts
-            kotlinx.coroutines.delay(15000L)
+        kotlinx.coroutines.delay(2000L)
+        try {
+            preProvisionWebViewCache(context)
+        } catch (e: Exception) {
+            // No-op
         }
     }
 }
