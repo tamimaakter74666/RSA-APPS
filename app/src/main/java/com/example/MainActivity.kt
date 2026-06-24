@@ -595,7 +595,7 @@ class MainActivity : ComponentActivity() {
                                 icon = {
                                     Icon(
                                         imageVector = Icons.Default.Delete,
-                                        contentDescription = "Clear Cache & Session",
+                                        contentDescription = "ক্যাশ ও সেশন মুছুন",
                                         tint = MaterialTheme.colorScheme.error
                                     )
                                 },
@@ -603,7 +603,7 @@ class MainActivity : ComponentActivity() {
                                 containerColor = BentoSecondaryContainer,
                                 title = {
                                     Text(
-                                        text = "Troubleshoot Portal",
+                                        text = "পোর্টাল ট্রাবলশুট ও ডাটা রিসেট",
                                         fontWeight = FontWeight.Bold,
                                         color = BentoDarkText
                                     )
@@ -611,13 +611,13 @@ class MainActivity : ComponentActivity() {
                                 text = {
                                     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                                         Text(
-                                            text = "This will completely clear the Portal's cache, stored cookies, and local database storage. Use this to troubleshoot content update, rendering, or session issues.",
+                                            text = "এটি পোর্টালের জমানো ক্যাশ (Cache), কুকিজ (Cookies) এবং লোকাল ডাটাবেজ মেমোরি সম্পূর্ণভাবে মুছে ফেলবে। লোডিং সমস্যা, নতুন আপডেট না পাওয়া অথবা লগইন সমস্যা সমাধান করতে এটি ব্যবহার করুন।",
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = BentoMutedText
                                         )
                                         Spacer(modifier = Modifier.height(12.dp))
                                         Text(
-                                            text = "The portal page will be reloaded and re-downloaded from scratch immediately.",
+                                            text = "এর পর পোর্টাল পেজটি সম্পূর্ণ নতুন করে ফ্রেশভাবে রিলোড হবে।",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = BentoMutedText,
                                             fontWeight = FontWeight.SemiBold
@@ -635,12 +635,12 @@ class MainActivity : ComponentActivity() {
                                             contentColor = Color.White
                                         )
                                     ) {
-                                        Text("Clear All Data")
+                                        Text("সব ডাটা মুছে দিন")
                                     }
                                 },
                                 dismissButton = {
                                     TextButton(onClick = { showClearCacheDialog = false }) {
-                                        Text(text = "Cancel", color = Purple40)
+                                        Text(text = "বাতিল করুন", color = Purple40)
                                     }
                                 }
                             )
@@ -720,14 +720,139 @@ fun preProvisionWebViewCache(context: android.content.Context) {
     }
 }
 
+fun injectAntiPwaScript(view: android.webkit.WebView) {
+    val js = """
+        (function() {
+            // 1. Prevent native and customized beforeinstallprompt prompts
+            window.addEventListener('beforeinstallprompt', function(e) {
+                e.preventDefault();
+                return false;
+            });
+            // 2. Hide common PWA installation banners or prompts dynamically via standard CSS rules
+            var style = document.getElementById('anti-pwa-style');
+            if (!style) {
+                style = document.createElement('style');
+                style.id = 'anti-pwa-style';
+                style.innerHTML = `
+                    .pwa-install-banner, .pwa-install-prompt, [class*="pwa-install"], [id*="pwa-install"], 
+                    .install-prompt, .app-install-banner, .pwa-banner, 
+                    iframe[src*="pwa"], iframe[id*="pwa"], iframe[class*="pwa"],
+                    #pwa-install-container, .pwa-install-container,
+                    [id*="install-prompt"], [class*="install-prompt"],
+                    [id*="install-banner"], [class*="install-banner"],
+                    .pwa-prompt, #pwa-prompt, .pwa-btn, .install-btn,
+                    .install-banner-wrapper, .install-pwa-toast {
+                        display: none !important;
+                        visibility: hidden !important;
+                        opacity: 0 !important;
+                        pointer-events: none !important;
+                        height: 0 !important;
+                        width: 0 !important;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            // 3. Spoof the standalone/installed status so on-site scripts think the PWA is already installed
+            try {
+                if (window.navigator && !('standalone' in window.navigator)) {
+                    Object.defineProperty(window.navigator, 'standalone', {
+                        get: function() { return true; }
+                    });
+                }
+            } catch(e) {}
+            // 4. Dispatch simulated appinstalled event to satisfy custom install button code on the page
+            window.dispatchEvent(new Event('appinstalled'));
+        })();
+    """.trimIndent()
+    view.evaluateJavascript(js, null)
+}
+
+private val activeObservers = java.util.Collections.synchronizedList(mutableListOf<android.os.FileObserver>())
+
 fun startWebViewCacheMonitoring(context: android.content.Context, scope: kotlinx.coroutines.CoroutineScope) {
-    // Highly optimized passive monitor (no-op or single run) to prevent disk thrashing & Chromium race conditions
+    // 1. Pre-emptively create directories first
+    try {
+        preProvisionWebViewCache(context)
+    } catch (e: Exception) {
+        // Ignore
+    }
+
+    // 2. Register native FileObservers for each potential path to handle deletions in real-time
+    try {
+        val cacheDir = context.cacheDir
+        val candidatePaths = listOf(
+            "WebView/Default/HTTP Cache/Code Cache",
+            "WebView/Default/Code Cache",
+            "org.chromium.android_webview/Default/HTTP Cache/Code Cache",
+            "org.chromium.android_webview/Default/Code Cache"
+        )
+
+        synchronized(activeObservers) {
+            for (obs in activeObservers) {
+                try {
+                    obs.stopWatching()
+                } catch (ex: Exception) {
+                    // Ignore
+                }
+            }
+            activeObservers.clear()
+        }
+
+        for (relPath in candidatePaths) {
+            val baseCacheDir = File(cacheDir, relPath)
+            if (!baseCacheDir.exists()) {
+                baseCacheDir.mkdirs()
+            }
+            File(baseCacheDir, "js").mkdirs()
+            File(baseCacheDir, "wasm").mkdirs()
+
+            val observer = object : android.os.FileObserver(
+                baseCacheDir.absolutePath,
+                android.os.FileObserver.DELETE or android.os.FileObserver.DELETE_SELF or android.os.FileObserver.CREATE
+            ) {
+                override fun onEvent(event: Int, path: String?) {
+                    if (path == "js" || path == "wasm" || (event and android.os.FileObserver.DELETE_SELF) != 0) {
+                        try {
+                            if (!baseCacheDir.exists()) {
+                                baseCacheDir.mkdirs()
+                            }
+                            File(baseCacheDir, "js").mkdirs()
+                            File(baseCacheDir, "wasm").mkdirs()
+                            Log.d("WebViewApp", "FileObserver instantly restored js/wasm at $relPath")
+                        } catch (e: Exception) {
+                            // Ignore
+                        }
+                    }
+                }
+            }
+            observer.startWatching()
+            activeObservers.add(observer)
+            Log.d("WebViewApp", "Started robust FileObserver for Code Cache at $relPath")
+        }
+    } catch (e: Exception) {
+        Log.e("WebViewApp", "Failed to register FileObservers: ${e.message}")
+    }
+
+    // 3. Keep fallback high-frequency polling loop for double redundancy
     scope.launch(Dispatchers.IO) {
-        kotlinx.coroutines.delay(2000L)
-        try {
-            preProvisionWebViewCache(context)
-        } catch (e: Exception) {
-            // No-op
+        // Run ultra-high frequency checks (every 5ms) for the first 30 seconds of startup
+        // This completely defeats the race condition where Chromium initializes/clears its cache at startup
+        for (i in 1..6000) {
+            try {
+                preProvisionWebViewCache(context)
+            } catch (e: Exception) {
+                // Ignore
+            }
+            kotlinx.coroutines.delay(5L)
+        }
+        // Then check every 200ms continuously to handle deferred or background cleanups safely
+        while (true) {
+            try {
+                preProvisionWebViewCache(context)
+            } catch (e: Exception) {
+                // Ignore
+            }
+            kotlinx.coroutines.delay(200L)
         }
     }
 }
@@ -900,6 +1025,9 @@ fun WebViewScreen(
                             }
                             override fun onPageFinished(view: WebView?, url: String?) {
                                 isLoading = false
+                                if (view != null) {
+                                    injectAntiPwaScript(view)
+                                }
                                 // Clean, zero disk access on UI thread
                                 if (url != null) {
                                     ConfigManager.getInstance(context).markUrlAsStable(url)
@@ -986,6 +1114,13 @@ fun WebViewScreen(
                             ): Boolean {
                                 popupMessageState = resultMsg
                                 return true
+                            }
+
+                            override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                                super.onProgressChanged(view, newProgress)
+                                if (newProgress >= 15 && view != null) {
+                                    injectAntiPwaScript(view)
+                                }
                             }
 
                             override fun onShowFileChooser(
@@ -1100,14 +1235,14 @@ fun WebViewScreen(
                         }
 
                         Text(
-                            text = "Portal Connection Error",
+                            text = "পোর্টাল কানেকশন ত্রুটি ⚠️",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = BentoOnPrimaryContainer
                         )
 
                         Text(
-                            text = "Could not load the portal. Please verify your data connection and tap the button below to retry.",
+                            text = "পোর্টালটি লোড করা সম্ভব হয়নি। অনুগ্রহ করে আপনার মোবাইল ইন্টারনেট অথবা ওয়াইফাই কানেকশন চেক করুন এবং নিচের বাটনে ট্যাপ করে আবার চেষ্টা করুন।",
                             style = MaterialTheme.typography.bodyMedium,
                             color = BentoMutedText,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -1136,11 +1271,11 @@ fun WebViewScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
-                                contentDescription = "Retry Connection",
+                                contentDescription = "পুনরায় চেষ্টা করুন",
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Retry Connection", fontWeight = FontWeight.Bold)
+                            Text("পুনরায় চেষ্টা করুন", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -2060,15 +2195,15 @@ fun MaintenanceScreen(
     val lottieSize = if (screenHeightDp < 500) 120.dp else 200.dp
 
     val titleText = if (isOffline) {
-        "Connectivity Alert"
+        "নেটওয়ার্ক সংযোগ ত্রুটি ⚠️"
     } else {
-        "Scheduled Maintenance"
+        "সার্ভার রক্ষণাবেক্ষণ চলছে 🛠️"
     }
 
     val messageText = if (isOffline) {
-        "It seems there is a power cut or network issue. Please check back later."
+        "মনে হচ্ছে আপনার ইন্টারনেট সংযোগে কোনো সমস্যা রয়েছে। অনুগ্রহ করে আপনার মোবাইল ডাটা বা ওয়াইফাই কানেকশন চেক করুন এবং পুনরায় চেষ্টা করুন।"
     } else {
-        "We are currently performing maintenance. We will be back by ${endTime.ifEmpty { "soon" }}."
+        "আমরা বর্তমানে সিস্টেম আপগ্রেডেশনের কাজ করছি। খুব শীঘ্রই আমরা ফিরবো। রক্ষণাবেক্ষণ কাজ সম্পন্ন হওয়ার সম্ভাব্য সময়: ${endTime.ifEmpty { "খুব দ্রুত" }}।"
     }
 
     val animationUrl = if (isNight) {
@@ -2185,7 +2320,7 @@ fun MaintenanceScreen(
                                     contentColor = contentColor
                                 )
                             ) {
-                                Text("Check Again", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                Text("পুনরায় চেষ্টা করুন", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                             }
                             androidx.compose.material3.Button(
                                 onClick = onProceedAnyway,
@@ -2195,7 +2330,7 @@ fun MaintenanceScreen(
                                     contentColor = Color.White
                                 )
                             ) {
-                                Text("Load Anyway", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                Text("তাও লোড করুন", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
