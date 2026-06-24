@@ -13,6 +13,10 @@ import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.Manifest
+import android.os.Build
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -146,6 +150,30 @@ class MainActivity : ComponentActivity() {
         setContent {
             MyApplicationTheme {
                 val context = LocalContext.current
+
+                val permissionLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.RequestPermission(),
+                    onResult = { isGranted ->
+                        if (isGranted) {
+                            Log.d("WebViewApp", "POST_NOTIFICATIONS permission granted")
+                        } else {
+                            Log.d("WebViewApp", "POST_NOTIFICATIONS permission denied")
+                        }
+                    }
+                )
+
+                LaunchedEffect(Unit) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        if (androidx.core.content.ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.POST_NOTIFICATIONS
+                            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                        ) {
+                            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    }
+                }
+
                 val configManager = remember { ConfigManager.getInstance(context) }
                 val configState by configManager.configState.collectAsState()
                 
@@ -1457,13 +1485,18 @@ private fun checkForUpdates(context: Context, onNewVersionAvailable: (UpdateInfo
             val url = remoteConfig.getString("version_check_url").ifEmpty {
                 "https://raw.githubusercontent.com/tamimaakter74666/RSA-APPS/main/version.json"
             }
+            val checkUrl = if (url.contains("?")) {
+                "$url&t=${System.currentTimeMillis()}"
+            } else {
+                "$url?t=${System.currentTimeMillis()}"
+            }
 
             val client = OkHttpClient.Builder()
                 .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
                 .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
                 .build()
 
-            val request = Request.Builder().url(url).build()
+            val request = Request.Builder().url(checkUrl).build()
             client.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
                     val bodyString = response.body?.string()
@@ -1481,18 +1514,30 @@ private fun checkForUpdates(context: Context, onNewVersionAvailable: (UpdateInfo
                             @Suppress("DEPRECATION")
                             packageInfo.versionCode
                         }
+                        val currentVersionName = packageInfo.versionName ?: ""
 
-                        if (serverVersionCode > currentVersionCode) {
+                        val isUpdateAvailable = serverVersionCode > currentVersionCode ||
+                                (serverVersionCode == currentVersionCode && serverVersionName != currentVersionName)
+
+                        if (isUpdateAvailable) {
                             withContext(Dispatchers.Main) {
                                 val prefs = context.getSharedPreferences("app_update_prefs", Context.MODE_PRIVATE)
                                 val lastNotifiedVersion = prefs.getInt("last_notified_version", 0)
-                                if (lastNotifiedVersion < serverVersionCode) {
+                                val lastNotifiedVersionName = prefs.getString("last_notified_version_name", "") ?: ""
+
+                                val shouldNotify = lastNotifiedVersion < serverVersionCode ||
+                                        (lastNotifiedVersion == serverVersionCode && lastNotifiedVersionName != serverVersionName)
+
+                                if (shouldNotify) {
                                     triggerNativePushNotification(
                                         context,
                                         "Rimon Sports নতুন আপডেট উপলব্ধ! 🚀",
                                         "অ্যাপটির নতুন সংস্করণ ($serverVersionName) এসেছে। এখনই ডাউনলোড এবং আপডেট করতে এখানে চাপুন।"
                                     )
-                                    prefs.edit().putInt("last_notified_version", serverVersionCode).apply()
+                                    prefs.edit()
+                                        .putInt("last_notified_version", serverVersionCode)
+                                        .putString("last_notified_version_name", serverVersionName)
+                                        .apply()
                                 }
                                 onNewVersionAvailable(
                                     UpdateInfo(
