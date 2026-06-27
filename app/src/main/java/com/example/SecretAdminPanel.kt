@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -74,6 +75,8 @@ fun SecretAdminPanel(
     var appLogoUrlInput by remember { mutableStateOf(configState.appLogoUrl) }
     var notificationTitleInput by remember { mutableStateOf(configState.notificationTitle) }
     var notificationBodyInput by remember { mutableStateOf(configState.notificationBody) }
+    var downloadUrlInput by remember { mutableStateOf(configState.downloadUrl) }
+    var releaseNotesInput by remember { mutableStateOf(configState.releaseNotes) }
 
     var saveSuccessMessage by remember { mutableStateOf<String?>(null) }
     var saveErrorMessage by remember { mutableStateOf<String?>(null) }
@@ -83,7 +86,7 @@ fun SecretAdminPanel(
     var selectedTabIndex by remember { mutableIntStateOf(0) }
 
     val sharedPrefs = remember { context.getSharedPreferences("rimon_config_prefs", android.content.Context.MODE_PRIVATE) }
-    var githubTokenInput by remember { mutableStateOf(sharedPrefs.getString("github_token_key", "").orEmpty().ifEmpty { "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" }) }
+    var githubTokenInput by remember { mutableStateOf(sharedPrefs.getString("github_token_key", "").orEmpty().ifEmpty { "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" }) }
     var isGithubSyncing by remember { mutableStateOf(false) }
 
     // Synchronize local states when background Firebase synchronizes
@@ -104,6 +107,8 @@ fun SecretAdminPanel(
         appLogoUrlInput = configState.appLogoUrl
         notificationTitleInput = configState.notificationTitle
         notificationBodyInput = configState.notificationBody
+        downloadUrlInput = configState.downloadUrl
+        releaseNotesInput = configState.releaseNotes
     }
 
     LaunchedEffect(useCurrentAppVersion) {
@@ -364,11 +369,84 @@ fun SecretAdminPanel(
                         }
                     } else {
                         // 2. High Density organized smart deployment dashboard
+                        val performFastToggle: (String) -> Unit = { newStatus ->
+                            isSaving = true
+                            saveSuccessMessage = null
+                            saveErrorMessage = null
+                            val finalVerName = if (useCurrentAppVersion) BuildConfig.VERSION_NAME else latestApkVersionInput
+                            val finalVerCode = if (useCurrentAppVersion) BuildConfig.VERSION_CODE else (latestApkVersionCodeInput.toIntOrNull() ?: BuildConfig.VERSION_CODE)
+
+                            if (githubTokenInput.trim().isNotEmpty()) {
+                                configManager.saveConfigToGithub(
+                                    githubToken = githubTokenInput.trim(),
+                                    websiteUrl = websiteUrlInput,
+                                    backupWebsiteUrl = backupWebsiteUrlInput,
+                                    appStatus = newStatus,
+                                    latestApkVersion = finalVerName,
+                                    latestApkVersionCode = finalVerCode,
+                                    appName = appNameInput,
+                                    appLogoUrl = appLogoUrlInput,
+                                    downloadUrl = downloadUrlInput,
+                                    releaseNotes = releaseNotesInput
+                                ) { ghSuccess, ghErr ->
+                                    configManager.saveConfigToFirestore(
+                                        websiteUrl = websiteUrlInput,
+                                        backupWebsiteUrl = backupWebsiteUrlInput,
+                                        appStatus = newStatus,
+                                        latestApkVersion = finalVerName,
+                                        latestApkVersionCode = finalVerCode,
+                                        maintenanceStartTime = maintenanceStartTimeInput,
+                                        maintenanceEndTime = maintenanceEndTimeInput,
+                                        appName = appNameInput,
+                                        appLogoUrl = appLogoUrlInput,
+                                        notificationTitle = configState.notificationTitle,
+                                        notificationBody = configState.notificationBody,
+                                        notificationId = configState.notificationId,
+                                        downloadUrl = downloadUrlInput,
+                                        releaseNotes = releaseNotesInput
+                                    ) { fsSuccess, fsErr ->
+                                        isSaving = false
+                                        if (fsSuccess && ghSuccess) {
+                                            saveSuccessMessage = "⚡ Status toggled globally to '$newStatus' on both GitHub & Firestore!"
+                                            appStatusInput = newStatus
+                                        } else {
+                                            saveErrorMessage = "Toggle partial fail. FS: $fsErr, GH: $ghErr"
+                                        }
+                                    }
+                                }
+                            } else {
+                                configManager.saveConfigToFirestore(
+                                    websiteUrl = websiteUrlInput,
+                                    backupWebsiteUrl = backupWebsiteUrlInput,
+                                    appStatus = newStatus,
+                                    latestApkVersion = finalVerName,
+                                    latestApkVersionCode = finalVerCode,
+                                    maintenanceStartTime = maintenanceStartTimeInput,
+                                    maintenanceEndTime = maintenanceEndTimeInput,
+                                    appName = appNameInput,
+                                    appLogoUrl = appLogoUrlInput,
+                                    notificationTitle = configState.notificationTitle,
+                                    notificationBody = configState.notificationBody,
+                                    notificationId = configState.notificationId,
+                                    downloadUrl = downloadUrlInput,
+                                    releaseNotes = releaseNotesInput
+                                ) { success, err ->
+                                    isSaving = false
+                                    if (success) {
+                                        saveSuccessMessage = "⚡ Status toggled globally to '$newStatus' (Firestore Only)!"
+                                        appStatusInput = newStatus
+                                    } else {
+                                        saveErrorMessage = "Toggle failed: $err"
+                                    }
+                                }
+                            }
+                        }
+
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
                         ) {
-                            // Quick Stats/Status Bar Panel
+                            // Smart Quick Actions Control Hub
                             Card(
                                 colors = CardDefaults.cardColors(containerColor = SurfaceDark),
                                 modifier = Modifier
@@ -377,34 +455,94 @@ fun SecretAdminPanel(
                                     .border(1.dp, BorderSlate, RoundedCornerShape(12.dp)),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column {
-                                        Text("Database Sync Channel", color = TextSlate, fontSize = 11.sp)
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Box(modifier = Modifier.size(6.dp).background(EmeraldSuccess, CircleShape))
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text("Active Snapshot Listener", color = TextWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text("SYSTEM STATUS", color = TextSlate, fontSize = 9.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Box(modifier = Modifier.size(8.dp).background(if (appStatusInput == "Active") EmeraldSuccess else WarnAmber, CircleShape))
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = appStatusInput.uppercase(),
+                                                    color = if (appStatusInput == "Active") EmeraldSuccess else WarnAmber,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 14.sp
+                                                )
+                                            }
+                                        }
+
+                                        // Interactive instant toggle button!
+                                        Button(
+                                            onClick = {
+                                                val nextStatus = if (appStatusInput == "Active") "Maintenance" else "Active"
+                                                performFastToggle(nextStatus)
+                                            },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = if (appStatusInput == "Active") WarnAmber.copy(alpha = 0.15f) else EmeraldSuccess.copy(alpha = 0.15f),
+                                                contentColor = if (appStatusInput == "Active") WarnAmber else EmeraldSuccess
+                                            ),
+                                            border = BorderStroke(1.dp, if (appStatusInput == "Active") WarnAmber.copy(alpha = 0.4f) else EmeraldSuccess.copy(alpha = 0.4f)),
+                                            shape = RoundedCornerShape(8.dp),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                            modifier = Modifier.height(32.dp),
+                                            enabled = !isSaving
+                                        ) {
+                                            Icon(
+                                                imageVector = if (appStatusInput == "Active") Icons.Default.Warning else Icons.Default.CheckCircle,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(12.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = if (appStatusInput == "Active") "PUT IN MAINTENANCE" else "ACTIVATE APP PUBLIC",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
                                         }
                                     }
-                                    VerticalDivider(color = BorderSlate, modifier = Modifier.height(28.dp).width(1.dp))
-                                    Column {
-                                        Text("System Status", color = TextSlate, fontSize = 11.sp)
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Box(modifier = Modifier.size(6.dp).background(if (appStatusInput == "Active") EmeraldSuccess else WarnAmber, CircleShape))
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(appStatusInput.uppercase(), color = if (appStatusInput == "Active") EmeraldSuccess else WarnAmber, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    HorizontalDivider(color = BorderSlate.copy(alpha = 0.5f))
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    // Info Grid Row
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("PRIMARY LINK", color = TextSlate, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                            Text(
+                                                text = websiteUrlInput.substringAfter("://").take(22) + if (websiteUrlInput.length > 22) "..." else "",
+                                                color = TextWhite,
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 11.sp,
+                                                maxLines = 1
+                                            )
                                         }
-                                    }
-                                    VerticalDivider(color = BorderSlate, modifier = Modifier.height(28.dp).width(1.dp))
-                                    Column {
-                                        Text("Connected App Name", color = TextSlate, fontSize = 11.sp)
-                                        Text(appNameInput.ifEmpty { "Rimon Sports" }, color = TextWhite, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("FAILOVER LINK", color = TextSlate, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                            Text(
+                                                text = backupWebsiteUrlInput.substringAfter("://").take(22) + if (backupWebsiteUrlInput.length > 22) "..." else "",
+                                                color = SecondaryCyan,
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 11.sp,
+                                                maxLines = 1
+                                            )
+                                        }
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            Text("DEPLOY SYNC", color = TextSlate, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                            Text(
+                                                text = if (githubTokenInput.trim().isNotEmpty()) "DUAL DACT 🟢" else "FIRESTORE ONLY 🟡",
+                                                color = if (githubTokenInput.trim().isNotEmpty()) EmeraldSuccess else WarnAmber,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 11.sp
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -703,7 +841,9 @@ fun SecretAdminPanel(
                                                                     latestApkVersion = finalVerName,
                                                                     latestApkVersionCode = finalVerCode,
                                                                     appName = appNameInput,
-                                                                    appLogoUrl = appLogoUrlInput
+                                                                    appLogoUrl = appLogoUrlInput,
+                                                                    downloadUrl = downloadUrlInput,
+                                                                    releaseNotes = releaseNotesInput
                                                                 ) { success, errMsg ->
                                                                     if (success) {
                                                                         // On successful GitHub update, also push to Firestore automatically so everything is perfectly synced in lockstep!
@@ -716,7 +856,12 @@ fun SecretAdminPanel(
                                                                             maintenanceStartTime = maintenanceStartTimeInput,
                                                                             maintenanceEndTime = maintenanceEndTimeInput,
                                                                             appName = appNameInput,
-                                                                            appLogoUrl = appLogoUrlInput
+                                                                            appLogoUrl = appLogoUrlInput,
+                                                                            notificationTitle = configState.notificationTitle,
+                                                                            notificationBody = configState.notificationBody,
+                                                                            notificationId = configState.notificationId,
+                                                                            downloadUrl = downloadUrlInput,
+                                                                            releaseNotes = releaseNotesInput
                                                                         ) { firestoreSuccess, firestoreError ->
                                                                             isGithubSyncing = false
                                                                             if (firestoreSuccess) {
@@ -1178,6 +1323,53 @@ fun SecretAdminPanel(
                                                     fontWeight = FontWeight.SemiBold
                                                 )
 
+                                                Spacer(modifier = Modifier.height(16.dp))
+
+                                                // Download URL field
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(imageVector = Icons.Default.Share, contentDescription = null, tint = SecondaryCyan, modifier = Modifier.size(16.dp))
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text("Deployment APK Download URL Link", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                                }
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                OutlinedTextField(
+                                                    value = downloadUrlInput,
+                                                    onValueChange = { downloadUrlInput = it },
+                                                    placeholder = { Text("https://github.com/tamimaakter74666/RSA-APPS/releases/download/latest/rimon_sports_release.apk") },
+                                                    colors = OutlinedTextFieldDefaults.colors(
+                                                        focusedBorderColor = PrimaryIndigo,
+                                                        unfocusedBorderColor = BorderSlate,
+                                                        focusedTextColor = TextWhite,
+                                                        unfocusedTextColor = TextWhite
+                                                    ),
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    singleLine = true
+                                                )
+
+                                                Spacer(modifier = Modifier.height(16.dp))
+
+                                                // Release Notes field
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(imageVector = Icons.Default.List, contentDescription = null, tint = SecondaryCyan, modifier = Modifier.size(16.dp))
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text("Deployment APK Release Notes", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                                }
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                OutlinedTextField(
+                                                    value = releaseNotesInput,
+                                                    onValueChange = { releaseNotesInput = it },
+                                                    placeholder = { Text("• Beautiful responsive Material Design 3 bento layouts.") },
+                                                    colors = OutlinedTextFieldDefaults.colors(
+                                                        focusedBorderColor = PrimaryIndigo,
+                                                        unfocusedBorderColor = BorderSlate,
+                                                        focusedTextColor = TextWhite,
+                                                        unfocusedTextColor = TextWhite
+                                                    ),
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    minLines = 3,
+                                                    maxLines = 5
+                                                 )
+
                                                 Spacer(modifier = Modifier.height(20.dp))
                                                 HorizontalDivider(color = BorderSlate)
                                                 Spacer(modifier = Modifier.height(16.dp))
@@ -1466,25 +1658,76 @@ fun SecretAdminPanel(
                                             saveSuccessMessage = null
                                             saveErrorMessage = null
 
-                                            configManager.saveConfigToFirestore(
-                                                websiteUrl = websiteUrlInput,
-                                                backupWebsiteUrl = backupWebsiteUrlInput,
-                                                appStatus = appStatusInput,
-                                                latestApkVersion = latestApkVersionInput,
-                                                latestApkVersionCode = latestApkVersionCodeInput.toIntOrNull() ?: 3,
-                                                maintenanceStartTime = maintenanceStartTimeInput,
-                                                maintenanceEndTime = maintenanceEndTimeInput,
-                                                appName = appNameInput,
-                                                appLogoUrl = appLogoUrlInput,
-                                                notificationTitle = configState.notificationTitle,
-                                                notificationBody = configState.notificationBody,
-                                                notificationId = configState.notificationId
-                                            ) { success, errMsg ->
-                                                isSaving = false
-                                                if (success) {
-                                                    saveSuccessMessage = "Database variables deployed dynamically globally! Client synchronizers notified."
-                                                } else {
-                                                    saveErrorMessage = "Cloud deploy failed: $errMsg"
+                                            val finalVerName = if (useCurrentAppVersion) BuildConfig.VERSION_NAME else latestApkVersionInput
+                                            val finalVerCode = if (useCurrentAppVersion) BuildConfig.VERSION_CODE else (latestApkVersionCodeInput.toIntOrNull() ?: BuildConfig.VERSION_CODE)
+
+                                            if (githubTokenInput.trim().isNotEmpty()) {
+                                                // Lockstep dual-deploy!
+                                                configManager.saveConfigToGithub(
+                                                    githubToken = githubTokenInput.trim(),
+                                                    websiteUrl = websiteUrlInput,
+                                                    backupWebsiteUrl = backupWebsiteUrlInput,
+                                                    appStatus = appStatusInput,
+                                                    latestApkVersion = finalVerName,
+                                                    latestApkVersionCode = finalVerCode,
+                                                    appName = appNameInput,
+                                                    appLogoUrl = appLogoUrlInput,
+                                                    downloadUrl = downloadUrlInput,
+                                                    releaseNotes = releaseNotesInput
+                                                ) { githubSuccess, githubError ->
+                                                    if (githubSuccess) {
+                                                        configManager.saveConfigToFirestore(
+                                                            websiteUrl = websiteUrlInput,
+                                                            backupWebsiteUrl = backupWebsiteUrlInput,
+                                                            appStatus = appStatusInput,
+                                                            latestApkVersion = finalVerName,
+                                                            latestApkVersionCode = finalVerCode,
+                                                            maintenanceStartTime = maintenanceStartTimeInput,
+                                                            maintenanceEndTime = maintenanceEndTimeInput,
+                                                            appName = appNameInput,
+                                                            appLogoUrl = appLogoUrlInput,
+                                                            notificationTitle = configState.notificationTitle,
+                                                            notificationBody = configState.notificationBody,
+                                                            notificationId = configState.notificationId,
+                                                            downloadUrl = downloadUrlInput,
+                                                            releaseNotes = releaseNotesInput
+                                                        ) { firestoreSuccess, firestoreError ->
+                                                            isSaving = false
+                                                            if (firestoreSuccess) {
+                                                                saveSuccessMessage = "⚡ আলহামদুলিল্লাহ! GitHub এবং Firestore উভয়ই সফলভাবে ডুয়াল-ডিপ্লয় ও সিঙ্ক করা হয়েছে!"
+                                                            } else {
+                                                                saveErrorMessage = "GitHub-এ সেভ সফল কিন্তু ফায়ারবেস ব্যর্থ: $firestoreError"
+                                                            }
+                                                        }
+                                                    } else {
+                                                        isSaving = false
+                                                        saveErrorMessage = "GitHub রিলিজ ফাইল সিঙ্ক ব্যর্থ: $githubError\nটোকেন বা কানেকশন চেক করুন।"
+                                                    }
+                                                }
+                                            } else {
+                                                // Regular Firestore deploy
+                                                configManager.saveConfigToFirestore(
+                                                    websiteUrl = websiteUrlInput,
+                                                    backupWebsiteUrl = backupWebsiteUrlInput,
+                                                    appStatus = appStatusInput,
+                                                    latestApkVersion = finalVerName,
+                                                    latestApkVersionCode = finalVerCode,
+                                                    maintenanceStartTime = maintenanceStartTimeInput,
+                                                    maintenanceEndTime = maintenanceEndTimeInput,
+                                                    appName = appNameInput,
+                                                    appLogoUrl = appLogoUrlInput,
+                                                    notificationTitle = configState.notificationTitle,
+                                                    notificationBody = configState.notificationBody,
+                                                    notificationId = configState.notificationId,
+                                                    downloadUrl = downloadUrlInput,
+                                                    releaseNotes = releaseNotesInput
+                                                ) { success, errMsg ->
+                                                    isSaving = false
+                                                    if (success) {
+                                                        saveSuccessMessage = "Database variables deployed dynamically globally! Client synchronizers notified."
+                                                    } else {
+                                                        saveErrorMessage = "Cloud deploy failed: $errMsg"
+                                                    }
                                                 }
                                             }
                                         },

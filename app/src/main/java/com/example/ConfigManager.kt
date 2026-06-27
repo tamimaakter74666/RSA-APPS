@@ -50,7 +50,9 @@ data class AppConfig(
     val appLogoUrl: String = "https://drive.google.com/file/d/1m5OYOPwQsK54Lz1-6IdiCHizA5sphBX6/view",
     val notificationTitle: String = "",
     val notificationBody: String = "",
-    val notificationId: String = ""
+    val notificationId: String = "",
+    val downloadUrl: String = "https://github.com/tamimaakter74666/RSA-APPS/releases/download/latest/rimon_sports_release.apk",
+    val releaseNotes: String = "• Beautiful responsive Material Design 3 bento layouts."
 )
 
 /**
@@ -180,86 +182,109 @@ class ConfigManager private constructor(private val context: Context) {
     /**
      * Highly resilient fallback configuration hotpatching from GitHub's version.json.
      * Activates instantly, bypassing Firebase setup dependency for non-expert admins.
+     * Runs periodically to sync status, maintenance mode, and link updates instantly across users.
      */
     fun syncConfigFromGithub(onUrlChanged: (String) -> Unit = {}) {
         scope.launch {
-            try {
-                val url = "https://raw.githubusercontent.com/tamimaakter74666/RSA-APPS/main/version.json"
-                val client = okhttp3.OkHttpClient.Builder()
-                    .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
-                    .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
-                    .build()
-                val request = okhttp3.Request.Builder().url(url).build()
-                client.newCall(request).execute().use { response ->
-                    if (response.isSuccessful) {
-                        val bodyString = response.body?.string()
-                        if (bodyString != null) {
-                            val json = JSONObject(bodyString)
-                            
-                            val githubUrl = json.optString("websiteUrl", "")
-                            val githubBackupUrl = json.optString("backupWebsiteUrl", "")
-                            val githubAppName = json.optString("appName", "")
-                            val githubLogoUrl = json.optString("appLogoUrl", "")
-                            val githubThemeColor = json.optString("themeColor", "")
-                            val githubAppStatus = json.optString("appStatus", "")
-                            val githubLatestApkVersionCode = if (json.has("versionCode")) {
-                                json.optInt("versionCode", 3)
-                            } else {
-                                json.optInt("latestApkVersionCode", 3)
-                            }
-                            val githubLatestApkVersion = if (json.has("versionName")) {
-                                json.optString("versionName", "1.2.0")
-                            } else {
-                                json.optString("latestApkVersion", "1.2.0")
-                            }
-                            
-                            val previousUrl = _configState.value.websiteUrl
-                            var updatedConfig = _configState.value
-                            updatedConfig = updatedConfig.copy(
-                                latestApkVersion = githubLatestApkVersion,
-                                latestApkVersionCode = githubLatestApkVersionCode
-                            )
-                            
-                            if (githubUrl.isNotEmpty() && isValidHttpsUrl(githubUrl)) {
-                                updatedConfig = updatedConfig.copy(websiteUrl = githubUrl)
-                            }
-                            if (githubBackupUrl.isNotEmpty() && isValidHttpsUrl(githubBackupUrl)) {
-                                updatedConfig = updatedConfig.copy(backupWebsiteUrl = githubBackupUrl)
-                            }
-                            if (githubAppName.isNotEmpty()) {
-                                updatedConfig = updatedConfig.copy(appName = githubAppName)
-                            }
-                            if (githubLogoUrl.isNotEmpty()) {
-                                updatedConfig = updatedConfig.copy(appLogoUrl = githubLogoUrl)
-                            }
-                            if (githubThemeColor.isNotEmpty()) {
-                                updatedConfig = updatedConfig.copy(themeColor = githubThemeColor)
-                            }
-                            if (githubAppStatus.isNotEmpty()) {
-                                updatedConfig = updatedConfig.copy(
-                                    appStatus = githubAppStatus,
-                                    maintenanceMode = githubAppStatus == "Maintenance"
-                                )
-                            }
-                            if (githubLatestApkVersion.isNotEmpty()) {
-                                updatedConfig = updatedConfig.copy(latestApkVersion = githubLatestApkVersion)
-                            }
-                            
-                            if (updatedConfig != _configState.value) {
-                                persistConfigLocally(updatedConfig)
-                                _configState.value = updatedConfig
-                                Log.d("ConfigManager", "Configurations successfully hotpatched from GitHub: $updatedConfig")
-                                if (updatedConfig.websiteUrl != previousUrl) {
-                                    withContext(Dispatchers.Main) {
-                                        onUrlChanged(updatedConfig.websiteUrl)
+            val baseUrl = "https://raw.githubusercontent.com/tamimaakter74666/RSA-APPS/main/version.json"
+            val client = okhttp3.OkHttpClient.Builder()
+                .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+
+            while (true) {
+                try {
+                    // Append current timestamp to completely bypass CDN caching on raw.githubusercontent.com and OkHttp local caches
+                    val checkUrl = "$baseUrl?t=${System.currentTimeMillis()}"
+                    val request = okhttp3.Request.Builder().url(checkUrl).build()
+                    client.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) {
+                            val bodyString = response.body?.string()
+                            if (bodyString != null) {
+                                val json = JSONObject(bodyString)
+                                
+                                val githubUrl = json.optString("websiteUrl", "")
+                                val githubBackupUrl = json.optString("backupWebsiteUrl", "")
+                                val githubAppName = json.optString("appName", "")
+                                val githubLogoUrl = json.optString("appLogoUrl", "")
+                                val githubThemeColor = json.optString("themeColor", "")
+                                val githubAppStatus = json.optString("appStatus", "")
+                                val githubLatestApkVersionCode = if (json.has("versionCode")) {
+                                    json.optInt("versionCode", 3)
+                                } else {
+                                    json.optInt("latestApkVersionCode", 3)
+                                }
+                                val githubLatestApkVersion = if (json.has("versionName")) {
+                                    json.optString("versionName", "1.2.0")
+                                } else {
+                                    json.optString("latestApkVersion", "1.2.0")
+                                }
+                                val githubDownloadUrl = json.optString("downloadUrl", "")
+                                val githubReleaseNotes = json.optString("releaseNotes", "")
+                                val githubLastUpdated = json.optLong("lastUpdated", 0L)
+                                
+                                val currentLastUpdated = _configState.value.lastUpdated
+                                val isGithubNewer = githubLastUpdated > currentLastUpdated || 
+                                        (githubLastUpdated == 0L && currentLastUpdated == 0L) ||
+                                        (githubLastUpdated == 0L && (System.currentTimeMillis() - currentLastUpdated > 60000L))
+
+                                if (isGithubNewer) {
+                                    val previousUrl = _configState.value.websiteUrl
+                                    var updatedConfig = _configState.value.copy(
+                                        latestApkVersion = githubLatestApkVersion,
+                                        latestApkVersionCode = githubLatestApkVersionCode,
+                                        lastUpdated = if (githubLastUpdated > 0L) githubLastUpdated else currentLastUpdated
+                                    )
+                                    
+                                    if (githubUrl.isNotEmpty() && isValidHttpsUrl(githubUrl)) {
+                                        updatedConfig = updatedConfig.copy(websiteUrl = githubUrl)
                                     }
+                                    if (githubBackupUrl.isNotEmpty() && isValidHttpsUrl(githubBackupUrl)) {
+                                        updatedConfig = updatedConfig.copy(backupWebsiteUrl = githubBackupUrl)
+                                    }
+                                    if (githubAppName.isNotEmpty()) {
+                                        updatedConfig = updatedConfig.copy(appName = githubAppName)
+                                    }
+                                    if (githubLogoUrl.isNotEmpty()) {
+                                        updatedConfig = updatedConfig.copy(appLogoUrl = githubLogoUrl)
+                                    }
+                                    if (githubThemeColor.isNotEmpty()) {
+                                        updatedConfig = updatedConfig.copy(themeColor = githubThemeColor)
+                                    }
+                                    if (githubAppStatus.isNotEmpty()) {
+                                        updatedConfig = updatedConfig.copy(
+                                            appStatus = githubAppStatus,
+                                            maintenanceMode = githubAppStatus == "Maintenance"
+                                        )
+                                    }
+                                    if (githubDownloadUrl.isNotEmpty()) {
+                                        updatedConfig = updatedConfig.copy(downloadUrl = githubDownloadUrl)
+                                    }
+                                    if (githubReleaseNotes.isNotEmpty()) {
+                                        updatedConfig = updatedConfig.copy(releaseNotes = githubReleaseNotes)
+                                    }
+                                    
+                                    if (updatedConfig != _configState.value) {
+                                        persistConfigLocally(updatedConfig)
+                                        _configState.value = updatedConfig
+                                        Log.d("ConfigManager", "Configurations successfully hotpatched from GitHub: $updatedConfig")
+                                        if (updatedConfig.websiteUrl != previousUrl) {
+                                            withContext(Dispatchers.Main) {
+                                                onUrlChanged(updatedConfig.websiteUrl)
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Log.v("ConfigManager", "GitHub config skipped. Current local/Firestore config is newer ($currentLastUpdated vs $githubLastUpdated)")
                                 }
                             }
                         }
                     }
+                } catch (e: Exception) {
+                    Log.e("ConfigManager", "Failed to hotpatch configurations from GitHub: ${e.message}")
                 }
-            } catch (e: Exception) {
-                Log.e("ConfigManager", "Failed to hotpatch configurations from GitHub: ${e.message}")
+                // Check every 10 seconds for instantaneous status/maintenance syncing across all active devices
+                kotlinx.coroutines.delay(10000L)
             }
         }
     }
@@ -285,6 +310,8 @@ class ConfigManager private constructor(private val context: Context) {
             val dbNotificationTitle = snapshot.getString("notification_title") ?: ""
             val dbNotificationBody = snapshot.getString("notification_body") ?: ""
             val dbNotificationId = snapshot.getString("notification_id") ?: ""
+            val dbDownloadUrl = snapshot.getString("download_url") ?: _configState.value.downloadUrl
+            val dbReleaseNotes = snapshot.getString("release_notes") ?: _configState.value.releaseNotes
 
             val previousUrl = _configState.value.websiteUrl
             val previousBackupUrl = _configState.value.backupWebsiteUrl
@@ -308,7 +335,9 @@ class ConfigManager private constructor(private val context: Context) {
                 appLogoUrl = dbAppLogoUrl,
                 notificationTitle = dbNotificationTitle,
                 notificationBody = dbNotificationBody,
-                notificationId = dbNotificationId
+                notificationId = dbNotificationId,
+                downloadUrl = dbDownloadUrl,
+                releaseNotes = dbReleaseNotes
             )
 
             persistConfigLocally(merged)
@@ -420,6 +449,8 @@ class ConfigManager private constructor(private val context: Context) {
         notificationTitle: String = _configState.value.notificationTitle,
         notificationBody: String = _configState.value.notificationBody,
         notificationId: String = _configState.value.notificationId,
+        downloadUrl: String = _configState.value.downloadUrl,
+        releaseNotes: String = _configState.value.releaseNotes,
         onComplete: (Boolean, String?) -> Unit
     ) {
         val data = hashMapOf(
@@ -437,7 +468,9 @@ class ConfigManager private constructor(private val context: Context) {
             "app_logo_url" to appLogoUrl,
             "notification_title" to notificationTitle,
             "notification_body" to notificationBody,
-            "notification_id" to notificationId
+            "notification_id" to notificationId,
+            "download_url" to downloadUrl,
+            "release_notes" to releaseNotes
         )
 
         // Always apply change locally first (zero UI latency)
@@ -457,7 +490,9 @@ class ConfigManager private constructor(private val context: Context) {
             appLogoUrl = appLogoUrl,
             notificationTitle = notificationTitle,
             notificationBody = notificationBody,
-            notificationId = notificationId
+            notificationId = notificationId,
+            downloadUrl = downloadUrl,
+            releaseNotes = releaseNotes
         )
         persistConfigLocally(localMerged)
         _configState.value = localMerged
@@ -493,6 +528,8 @@ class ConfigManager private constructor(private val context: Context) {
         latestApkVersionCode: Int,
         appName: String,
         appLogoUrl: String,
+        downloadUrl: String = _configState.value.downloadUrl,
+        releaseNotes: String = _configState.value.releaseNotes,
         onComplete: (Boolean, String?) -> Unit
     ) {
         scope.launch {
@@ -526,17 +563,20 @@ class ConfigManager private constructor(private val context: Context) {
                     }
                 }
 
+                val timestamp = System.currentTimeMillis()
+
                 // Step 2: Build the newly updated JSON payload structure
                 val newJson = JSONObject().apply {
                     put("versionCode", latestApkVersionCode)
                     put("versionName", latestApkVersion)
-                    put("downloadUrl", "https://github.com/tamimaakter74666/RSA-APPS/releases/download/latest/rimon_sports_release.apk")
-                    put("releaseNotes", "• Dynamic configurations successfully synchronized.")
+                    put("downloadUrl", downloadUrl)
+                    put("releaseNotes", releaseNotes)
                     put("websiteUrl", websiteUrl)
                     put("backupWebsiteUrl", backupWebsiteUrl)
                     put("appName", appName)
                     put("appLogoUrl", appLogoUrl)
                     put("appStatus", appStatus)
+                    put("lastUpdated", timestamp)
                 }
 
                 val jsonContent = newJson.toString(2)
@@ -573,9 +613,13 @@ class ConfigManager private constructor(private val context: Context) {
                                 backupWebsiteUrl = backupWebsiteUrl,
                                 appStatus = appStatus,
                                 latestApkVersion = latestApkVersion,
+                                latestApkVersionCode = latestApkVersionCode,
                                 appName = appName,
                                 appLogoUrl = appLogoUrl,
-                                maintenanceMode = appStatus == "Maintenance"
+                                maintenanceMode = appStatus == "Maintenance",
+                                downloadUrl = downloadUrl,
+                                releaseNotes = releaseNotes,
+                                lastUpdated = timestamp
                             )
                             persistConfigLocally(localMerged)
                             _configState.value = localMerged
