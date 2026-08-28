@@ -4,15 +4,17 @@ import java.util.zip.ZipOutputStream
 import java.util.zip.ZipEntry
 import java.util.Base64
 
-// Automatically decode debug.keystore.base64 if debug.keystore does not exist
+// Automatically decode debug.keystore.base64 to preserve original June 14 key
 val base64File = file("${rootDir}/debug.keystore.base64")
 val targetKeystore = file("${rootDir}/debug.keystore")
-if (base64File.exists() && !targetKeystore.exists()) {
+if (base64File.exists()) {
   try {
     val base64Content = base64File.readText().trim()
     val decodedBytes = Base64.getDecoder().decode(base64Content)
     targetKeystore.writeBytes(decodedBytes)
-    println("Successfully decoded debug.keystore from debug.keystore.base64!")
+    val appKeystore = file("${rootDir}/app/debug.keystore")
+    appKeystore.writeBytes(decodedBytes)
+    println("Successfully decoded original debug.keystore from debug.keystore.base64!")
   } catch (e: Exception) {
     println("Error decoding debug.keystore: ${e.message}")
   }
