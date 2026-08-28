@@ -41,8 +41,8 @@ data class AppConfig(
     val maintenanceMode: Boolean = false,
     val featureChatEnabled: Boolean = true,
     val appStatus: String = "Active", // "Active" or "Maintenance"
-    val latestApkVersion: String = "1.2.0",
-    val latestApkVersionCode: Int = 3,
+    val latestApkVersion: String = "1.2.2",
+    val latestApkVersionCode: Int = 5,
     val maintenanceStartTime: String = "",
     val maintenanceEndTime: String = "",
     val lastUpdated: Long = System.currentTimeMillis(),
@@ -62,8 +62,25 @@ data class AppConfig(
 class ConfigManager private constructor(private val context: Context) {
 
     private val sharedPrefs = context.getSharedPreferences("rimon_config_prefs", Context.MODE_PRIVATE)
-    private val firebaseConfig = FirebaseRemoteConfig.getInstance()
     private val scope = CoroutineScope(Dispatchers.IO)
+
+    private val firebaseConfig: FirebaseRemoteConfig?
+        get() = try {
+            if (com.google.firebase.FirebaseApp.getApps(context).isNotEmpty()) {
+                FirebaseRemoteConfig.getInstance()
+            } else null
+        } catch (e: Exception) {
+            null
+        }
+
+    private val firestore: FirebaseFirestore?
+        get() = try {
+            if (com.google.firebase.FirebaseApp.getApps(context).isNotEmpty()) {
+                FirebaseFirestore.getInstance()
+            } else null
+        } catch (e: Exception) {
+            null
+        }
 
     // Single reactive state stream representing active configurations
     private val _configState = MutableStateFlow(loadLocalPersistedConfig())
@@ -88,11 +105,12 @@ class ConfigManager private constructor(private val context: Context) {
      * Initializes default values and dynamic settings for Remote Config.
      */
     private fun setupRemoteConfigDefaults() {
+        val config = firebaseConfig ?: return
         try {
             val configSettings = remoteConfigSettings {
                 minimumFetchIntervalInSeconds = 0 // Real-time immediate update syncing
             }
-            firebaseConfig.setConfigSettingsAsync(configSettings)
+            config.setConfigSettingsAsync(configSettings)
 
             val defaults = mapOf(
                 "website_url" to "https://rimonsports.com/",
@@ -101,8 +119,8 @@ class ConfigManager private constructor(private val context: Context) {
                     "themeColor": "#040D1A",
                     "maintenanceMode": false,
                     "appStatus": "Active",
-                    "latestApkVersion": "1.2.0",
-                    "latestApkVersionCode": 3,
+                    "latestApkVersion": "1.2.2",
+                    "latestApkVersionCode": 5,
                     "featureChatEnabled": true,
                     "maintenanceStartTime": "",
                     "maintenanceEndTime": "",
@@ -114,7 +132,7 @@ class ConfigManager private constructor(private val context: Context) {
                     "notificationId": ""
                 }""".trimIndent()
             )
-            firebaseConfig.setDefaultsAsync(defaults)
+            config.setDefaultsAsync(defaults)
         } catch (e: Exception) {
             Log.e("ConfigManager", "Error setting up Remote Config defaults: ${e.message}")
         }
@@ -128,11 +146,11 @@ class ConfigManager private constructor(private val context: Context) {
     fun startRealTimeSync(onUrlChanged: (String) -> Unit) {
         // 1. Firebase Remote Config Real-Time Setup
         try {
-            firebaseConfig.addOnConfigUpdateListener(object : ConfigUpdateListener {
+            firebaseConfig?.addOnConfigUpdateListener(object : ConfigUpdateListener {
                 override fun onUpdate(configUpdate: ConfigUpdate) {
                     Log.d("ConfigManager", "Real-time key changes check: ${configUpdate.updatedKeys}")
                     
-                    firebaseConfig.activate().addOnCompleteListener { task ->
+                    firebaseConfig?.activate()?.addOnCompleteListener { task ->
                         if (task.isSuccessful) {
                             Log.d("ConfigManager", "Remote Config hot-loaded.")
                             val previousUrl = _configState.value.websiteUrl
@@ -156,9 +174,8 @@ class ConfigManager private constructor(private val context: Context) {
 
         // 2. Cloud Firestore Real-time Snapshot Listener Setup
         try {
-            val firestore = FirebaseFirestore.getInstance()
-            firestore.collection("configs").document("app_config")
-                .addSnapshotListener { snapshot, e ->
+            firestore?.collection("configs")?.document("app_config")
+                ?.addSnapshotListener { snapshot, e ->
                     if (e != null) {
                         Log.w("ConfigManager", "Firestore real-time listener unaccessible. Falling back to cached flow.", e)
                         return@addSnapshotListener
@@ -186,22 +203,32 @@ class ConfigManager private constructor(private val context: Context) {
      */
     fun syncConfigFromGithub(onUrlChanged: (String) -> Unit = {}) {
         scope.launch {
-            val baseUrl = "https://raw.githubusercontent.com/tamimaakter74666/RSA-APPS/main/version.json"
+            val baseUrls = listOf(
+                "https://raw.githubusercontent.com/tamimaakter74666/RSA-APPS/main/version.json",
+                "https://raw.githubusercontent.com/tamimaakter74666/RSA-APPS/master/version.json",
+                "https://cdn.jsdelivr.net/gh/tamimaakter74666/RSA-APPS@main/version.json"
+            )
             val client = okhttp3.OkHttpClient.Builder()
                 .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
                 .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
                 .build()
 
             while (true) {
-                try {
-                    // Append current timestamp to completely bypass CDN caching on raw.githubusercontent.com and OkHttp local caches
-                    val checkUrl = "$baseUrl?t=${System.currentTimeMillis()}"
-                    val request = okhttp3.Request.Builder().url(checkUrl).build()
-                    client.newCall(request).execute().use { response ->
-                        if (response.isSuccessful) {
-                            val bodyString = response.body?.string()
-                            if (bodyString != null) {
-                                val json = JSONObject(bodyString)
+                var syncSuccessful = false
+                for (baseUrl in baseUrls) {
+                    try {
+                        // Append current timestamp to completely bypass CDN caching on raw.githubusercontent.com and OkHttp local caches
+                        val checkUrl = "$baseUrl?t=${System.currentTimeMillis()}"
+                        val request = okhttp3.Request.Builder()
+                            .url(checkUrl)
+                            .header("Cache-Control", "no-cache")
+                            .build()
+                        client.newCall(request).execute().use { response ->
+                            if (response.isSuccessful) {
+                                val bodyString = response.body?.string()
+                                if (bodyString != null) {
+                                    syncSuccessful = true
+                                    val json = JSONObject(bodyString)
                                 
                                 val githubUrl = json.optString("websiteUrl", "")
                                 val githubBackupUrl = json.optString("backupWebsiteUrl", "")
@@ -280,11 +307,13 @@ class ConfigManager private constructor(private val context: Context) {
                             }
                         }
                     }
-                } catch (e: Exception) {
-                    Log.e("ConfigManager", "Failed to hotpatch configurations from GitHub: ${e.message}")
+                    } catch (e: Exception) {
+                        Log.w("ConfigManager", "GitHub hotpatch failed for $baseUrl: ${e.message}")
+                    }
+                    if (syncSuccessful) break
                 }
-                // Check every 10 seconds for instantaneous status/maintenance syncing across all active devices
-                kotlinx.coroutines.delay(10000L)
+                // Check every 15 seconds for instantaneous status/maintenance syncing across all active devices
+                kotlinx.coroutines.delay(15000L)
             }
         }
     }
@@ -361,8 +390,9 @@ class ConfigManager private constructor(private val context: Context) {
      * Pulls the absolute latest version from Remote Config servers.
      */
     fun fetchAndTriggerUpdates(onUrlChanged: (String) -> Unit = {}) {
+        val config = firebaseConfig ?: return
         val previousUrl = _configState.value.websiteUrl
-        firebaseConfig.fetchAndActivate()
+        config.fetchAndActivate()
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
                     Log.d("ConfigManager", "Remote Config fetch completed.")
@@ -384,10 +414,11 @@ class ConfigManager private constructor(private val context: Context) {
      */
     @Synchronized
     private fun syncAndMergeRemoteConfig() {
+        val config = firebaseConfig ?: return
         try {
-            val remoteUrl = firebaseConfig.getString("website_url")
-            val remoteBackupUrl = firebaseConfig.getString("backup_website_url")
-            val remoteJsonString = firebaseConfig.getString("app_config_json")
+            val remoteUrl = config.getString("website_url")
+            val remoteBackupUrl = config.getString("backup_website_url")
+            val remoteJsonString = config.getString("app_config_json")
 
             // Validate remote URL schema before accepting
             val finalUrl = if (isValidHttpsUrl(remoteUrl)) {
@@ -497,9 +528,13 @@ class ConfigManager private constructor(private val context: Context) {
         persistConfigLocally(localMerged)
         _configState.value = localMerged
 
+        val db = firestore
+        if (db == null) {
+            onComplete(true, "Saved locally (Firebase Auth/Service not configured)")
+            return
+        }
         try {
-            val firestore = FirebaseFirestore.getInstance()
-            firestore.collection("configs").document("app_config")
+            db.collection("configs").document("app_config")
                 .set(data)
                 .addOnSuccessListener {
                     Log.d("ConfigManager", "Firestore update deployed successfully!")

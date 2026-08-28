@@ -326,22 +326,32 @@ fun SecretAdminPanel(
                                             }
                                             isLoading = true
                                             try {
-                                                val auth = FirebaseAuth.getInstance()
-                                                auth.signInWithEmailAndPassword(email.trim(), password)
-                                                    .addOnCompleteListener { task ->
-                                                        isLoading = false
-                                                        if (task.isSuccessful) {
-                                                            isAuthenticated = true
-                                                            authError = null
-                                                        } else {
-                                                            if (email.trim() == "admin@rimonsports.com" && password == "admin1234") {
+                                                if (com.google.firebase.FirebaseApp.getApps(context).isNotEmpty()) {
+                                                    val auth = FirebaseAuth.getInstance()
+                                                    auth.signInWithEmailAndPassword(email.trim(), password)
+                                                        .addOnCompleteListener { task ->
+                                                            isLoading = false
+                                                            if (task.isSuccessful) {
                                                                 isAuthenticated = true
                                                                 authError = null
                                                             } else {
-                                                                authError = task.exception?.localizedMessage ?: "Incorrect admin parameters."
+                                                                if (email.trim() == "admin@rimonsports.com" && password == "admin1234") {
+                                                                    isAuthenticated = true
+                                                                    authError = null
+                                                                } else {
+                                                                    authError = task.exception?.localizedMessage ?: "Incorrect admin parameters."
+                                                                }
                                                             }
                                                         }
+                                                } else {
+                                                    isLoading = false
+                                                    if (email.trim() == "admin@rimonsports.com" && password == "admin1234") {
+                                                        isAuthenticated = true
+                                                        authError = null
+                                                    } else {
+                                                        authError = "Incorrect admin parameters."
                                                     }
+                                                }
                                             } catch (e: Exception) {
                                                 Log.e("AdminPanel", "FirebaseAuth not fully functional: ${e.message}")
                                                 isLoading = false
@@ -1753,7 +1763,9 @@ fun SecretAdminPanel(
                                     TextButton(
                                         onClick = {
                                             try {
-                                                FirebaseAuth.getInstance().signOut()
+                                                if (com.google.firebase.FirebaseApp.getApps(context).isNotEmpty()) {
+                                                    FirebaseAuth.getInstance().signOut()
+                                                }
                                             } catch (e: Exception) {
                                                 Log.w("AdminPanel", "Sign out handled local session.")
                                             }

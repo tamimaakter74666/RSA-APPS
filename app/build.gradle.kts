@@ -33,8 +33,8 @@ android {
     applicationId = "com.aistudio.rimonsports.portal"
     minSdk = 24
     targetSdk = 34
-    versionCode = 4
-    versionName = "1.2.1"
+    versionCode = 9
+    versionName = "1.2.6"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

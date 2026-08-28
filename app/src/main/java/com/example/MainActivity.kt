@@ -116,7 +116,16 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = androidx.activity.SystemBarStyle.light(
+                android.graphics.Color.TRANSPARENT,
+                android.graphics.Color.TRANSPARENT
+            ),
+            navigationBarStyle = androidx.activity.SystemBarStyle.light(
+                android.graphics.Color.TRANSPARENT,
+                android.graphics.Color.TRANSPARENT
+            )
+        )
 
         // Clean up stale update APK so the new app instance is fresh and clean
         try {
@@ -132,19 +141,17 @@ class MainActivity : ComponentActivity() {
         preProvisionWebViewCache(this)
         startWebViewCacheMonitoring(this, lifecycleScope)
 
-        // Initialize Firebase programmatically to avoid crashes if Google Services config is missing
+        // Initialize Firebase safely if google-services config exists
         try {
-            if (FirebaseApp.getApps(this).isEmpty()) {
-                val options = FirebaseOptions.Builder()
-                    .setApplicationId("1:1911891122:android:5a5b5c5d5e5f")
-                    .setProjectId("portal-webview")
-                    .setApiKey(BuildConfig.GEMINI_API_KEY.ifEmpty { "AIzaSyFakeKeyPlaceholder" })
-                    .build()
-                FirebaseApp.initializeApp(this, options)
-                Log.d("WebViewApp", "Firebase initialized programmatically.")
+            val resId = resources.getIdentifier("google_app_id", "string", packageName)
+            if (resId != 0 && FirebaseApp.getApps(this).isEmpty()) {
+                FirebaseApp.initializeApp(this)
+                Log.d("WebViewApp", "Firebase initialized from google-services.json configuration.")
+            } else if (FirebaseApp.getApps(this).isEmpty()) {
+                Log.d("WebViewApp", "Firebase initialization bypassed: google-services.json not provided. Using GitHub & local fallback.")
             }
         } catch (e: Exception) {
-            Log.e("WebViewApp", "Could not initialize Firebase programmatically: ${e.message}")
+            Log.e("WebViewApp", "Could not initialize Firebase: ${e.message}")
         }
 
         setContent {
@@ -251,87 +258,97 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    containerColor = BentoBackground,
-                    topBar = {
-                        if (!isWebViewExpanded) {
-                            TopAppBar(
-                                title = {
-                                    Column(
-                                        modifier = Modifier.pointerInput(Unit) {
-                                            detectTapGestures(
-                                                onLongPress = {
-                                                    showClearCacheDialog = true
-                                                }
-                                            )
-                                        }
-                                    ) {
-                                        Text(
-                                            text = configState.appName.ifEmpty { "Rimon Sports" },
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = BentoDarkText
-                                        )
-                                        val cleanUrlHost = remember(urlState) {
-                                            try {
-                                                Uri.parse(urlState).host ?: "portal.internal.net"
-                                            } catch (e: Exception) {
-                                                "portal.internal.net"
-                                            }
-                                        }
-                                        Text(
-                                            text = cleanUrlHost,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = BentoMutedText
-                                        )
-                                    }
-                                },
-                                actions = {
-                                    // Manual Sync check matching topbar layout
-                                    IconButton(
-                                        onClick = {
-                                            coroutineScope.launch {
-                                                checkForUpdates(context) { info ->
-                                                    updateInfo = info
-                                                    showUpdateDialog = true
-                                                }
-                                            }
-                                        }
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Refresh,
-                                            contentDescription = "Sync",
-                                            tint = BentoDarkText
-                                        )
-                                    }
-                                },
-                                colors = TopAppBarDefaults.topAppBarColors(
-                                    containerColor = BentoBackground
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Scaffold(
+                        modifier = Modifier.fillMaxSize(),
+                        containerColor = BentoBackground,
+                        topBar = {
+                            Column(modifier = Modifier.fillMaxWidth().background(BentoBackground)) {
+                                Spacer(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .windowInsetsTopHeight(WindowInsets.statusBars)
+                                        .background(BentoBackground)
                                 )
-                            )
-                        }
-                    }
-                ) { innerPadding ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(if (isWebViewExpanded) PaddingValues(0.dp) else innerPadding)
-                    ) {
-                        // Hidden Top-Left corner long-press trigger for Secret Admin Console
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .statusBarsPadding()
-                                .size(48.dp)
-                                .pointerInput(Unit) {
-                                    detectTapGestures(
-                                        onLongPress = {
-                                            showAdminPanel = true
-                                        }
+                                if (!isWebViewExpanded) {
+                                    TopAppBar(
+                                        title = {
+                                            Column(
+                                                modifier = Modifier.pointerInput(Unit) {
+                                                    detectTapGestures(
+                                                        onLongPress = {
+                                                            showClearCacheDialog = true
+                                                        }
+                                                    )
+                                                }
+                                            ) {
+                                                Text(
+                                                    text = configState.appName.ifEmpty { "Rimon Sports" },
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = BentoDarkText
+                                                )
+                                                val cleanUrlHost = remember(urlState) {
+                                                    try {
+                                                        Uri.parse(urlState).host ?: "portal.internal.net"
+                                                    } catch (e: Exception) {
+                                                        "portal.internal.net"
+                                                    }
+                                                }
+                                                Text(
+                                                    text = cleanUrlHost,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = BentoMutedText
+                                                )
+                                            }
+                                        },
+                                        actions = {
+                                            // Manual Sync check matching topbar layout
+                                            IconButton(
+                                                onClick = {
+                                                    coroutineScope.launch {
+                                                        checkForUpdates(context) { info ->
+                                                            updateInfo = info
+                                                            showUpdateDialog = true
+                                                        }
+                                                    }
+                                                }
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Refresh,
+                                                    contentDescription = "Sync",
+                                                    tint = BentoDarkText
+                                                )
+                                            }
+                                        },
+                                        colors = TopAppBarDefaults.topAppBarColors(
+                                            containerColor = BentoBackground
+                                        )
                                     )
                                 }
-                        )
+                            }
+                        },
+                        contentWindowInsets = WindowInsets(0, 0, 0, 0)
+                    ) { innerPadding ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(BentoBackground)
+                                .padding(innerPadding)
+                        ) {
+                        // Hidden Top-Left corner long-press trigger for Secret Admin Console
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .size(48.dp)
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onLongPress = {
+                                                showAdminPanel = true
+                                            }
+                                        )
+                                    }
+                            )
 
                         val isMaintenanceActive = configState.maintenanceMode || isInsideMaintenanceWindow(configState.maintenanceStartTime, configState.maintenanceEndTime)
                         val connectivityState by rememberConnectivityState(context = context, refreshTrigger = connectivityRefreshTrigger)
@@ -372,6 +389,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
+                    }
 
                         // Beautiful Adaptive M3 Dialog styled with correct overlay elements from Design HTML
                         if (showUpdateDialog && updateInfo != null) {
@@ -1481,14 +1499,22 @@ private fun handleCustomUrlSchemes(view: android.webkit.WebView?, url: String): 
 private fun checkForUpdates(context: Context, onNewVersionAvailable: (UpdateInfo) -> Unit) {
     kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
         try {
-            val remoteConfig = FirebaseRemoteConfig.getInstance()
-            val url = remoteConfig.getString("version_check_url").ifEmpty {
-                "https://raw.githubusercontent.com/tamimaakter74666/RSA-APPS/main/version.json"
+            val configuredUrl = try {
+                if (FirebaseApp.getApps(context).isNotEmpty()) {
+                    FirebaseRemoteConfig.getInstance().getString("version_check_url")
+                } else ""
+            } catch (e: Exception) {
+                ""
             }
-            val checkUrl = if (url.contains("?")) {
-                "$url&t=${System.currentTimeMillis()}"
+            
+            val urlsToTry = if (configuredUrl.isNotEmpty()) {
+                listOf(configuredUrl)
             } else {
-                "$url?t=${System.currentTimeMillis()}"
+                listOf(
+                    "https://raw.githubusercontent.com/tamimaakter74666/RSA-APPS/main/version.json",
+                    "https://raw.githubusercontent.com/tamimaakter74666/RSA-APPS/master/version.json",
+                    "https://cdn.jsdelivr.net/gh/tamimaakter74666/RSA-APPS@main/version.json"
+                )
             }
 
             val client = OkHttpClient.Builder()
@@ -1496,60 +1522,77 @@ private fun checkForUpdates(context: Context, onNewVersionAvailable: (UpdateInfo
                 .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
                 .build()
 
-            val request = Request.Builder().url(checkUrl).build()
-            client.newCall(request).execute().use { response ->
-                if (response.isSuccessful) {
-                    val bodyString = response.body?.string()
-                    if (bodyString != null) {
-                        val json = JSONObject(bodyString)
-                        val serverVersionCode = json.getInt("versionCode")
-                        val serverVersionName = json.getString("versionName")
-                        val downloadUrl = json.getString("downloadUrl")
-                        val releaseNotes = json.optString("releaseNotes", "New stability and performance improvements are available.")
+            for (baseUrl in urlsToTry) {
+                val checkUrl = if (baseUrl.contains("?")) {
+                    "$baseUrl&t=${System.currentTimeMillis()}"
+                } else {
+                    "$baseUrl?t=${System.currentTimeMillis()}"
+                }
 
-                        val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-                        val currentVersionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-                            packageInfo.longVersionCode.toInt()
-                        } else {
-                            @Suppress("DEPRECATION")
-                            packageInfo.versionCode
-                        }
-                        val currentVersionName = packageInfo.versionName ?: ""
+                try {
+                    val request = Request.Builder()
+                        .url(checkUrl)
+                        .header("Cache-Control", "no-cache")
+                        .build()
 
-                        val isUpdateAvailable = serverVersionCode > currentVersionCode ||
-                                (serverVersionCode == currentVersionCode && serverVersionName != currentVersionName)
+                    client.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) {
+                            val bodyString = response.body?.string()
+                            if (bodyString != null) {
+                                val json = JSONObject(bodyString)
+                                val serverVersionCode = json.getInt("versionCode")
+                                val serverVersionName = json.getString("versionName")
+                                val downloadUrl = json.getString("downloadUrl")
+                                val releaseNotes = json.optString("releaseNotes", "New stability and performance improvements are available.")
 
-                        if (isUpdateAvailable) {
-                            withContext(Dispatchers.Main) {
-                                val prefs = context.getSharedPreferences("app_update_prefs", Context.MODE_PRIVATE)
-                                val lastNotifiedVersion = prefs.getInt("last_notified_version", 0)
-                                val lastNotifiedVersionName = prefs.getString("last_notified_version_name", "") ?: ""
-
-                                val shouldNotify = lastNotifiedVersion < serverVersionCode ||
-                                        (lastNotifiedVersion == serverVersionCode && lastNotifiedVersionName != serverVersionName)
-
-                                if (shouldNotify) {
-                                    triggerNativePushNotification(
-                                        context,
-                                        "Rimon Sports নতুন আপডেট উপলব্ধ! 🚀",
-                                        "অ্যাপটির নতুন সংস্করণ ($serverVersionName) এসেছে। এখনই ডাউনলোড এবং আপডেট করতে এখানে চাপুন।"
-                                    )
-                                    prefs.edit()
-                                        .putInt("last_notified_version", serverVersionCode)
-                                        .putString("last_notified_version_name", serverVersionName)
-                                        .apply()
+                                val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+                                val currentVersionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                                    packageInfo.longVersionCode.toInt()
+                                } else {
+                                    @Suppress("DEPRECATION")
+                                    packageInfo.versionCode
                                 }
-                                onNewVersionAvailable(
-                                    UpdateInfo(
-                                        versionCode = serverVersionCode,
-                                        versionName = serverVersionName,
-                                        downloadUrl = downloadUrl,
-                                        releaseNotes = releaseNotes
-                                    )
-                                )
+                                val currentVersionName = packageInfo.versionName ?: ""
+
+                                val isUpdateAvailable = serverVersionCode > currentVersionCode ||
+                                        (serverVersionCode == currentVersionCode && serverVersionName != currentVersionName)
+
+                                if (isUpdateAvailable) {
+                                    withContext(Dispatchers.Main) {
+                                        val prefs = context.getSharedPreferences("app_update_prefs", Context.MODE_PRIVATE)
+                                        val lastNotifiedVersion = prefs.getInt("last_notified_version", 0)
+                                        val lastNotifiedVersionName = prefs.getString("last_notified_version_name", "") ?: ""
+
+                                        val shouldNotify = lastNotifiedVersion < serverVersionCode ||
+                                                (lastNotifiedVersion == serverVersionCode && lastNotifiedVersionName != serverVersionName)
+
+                                        if (shouldNotify) {
+                                            triggerNativePushNotification(
+                                                context,
+                                                "Rimon Sports নতুন আপডেট উপলব্ধ! 🚀",
+                                                "অ্যাপটির নতুন সংস্করণ ($serverVersionName) এসেছে। এখনই ডাউনলোড এবং আপডেট করতে এখানে চাপুন।"
+                                            )
+                                            prefs.edit()
+                                                .putInt("last_notified_version", serverVersionCode)
+                                                .putString("last_notified_version_name", serverVersionName)
+                                                .apply()
+                                        }
+                                        onNewVersionAvailable(
+                                            UpdateInfo(
+                                                versionCode = serverVersionCode,
+                                                versionName = serverVersionName,
+                                                downloadUrl = downloadUrl,
+                                                releaseNotes = releaseNotes
+                                            )
+                                        )
+                                    }
+                                }
+                                return@launch // successfully handled
                             }
                         }
                     }
+                } catch (e: Exception) {
+                    Log.w("WebViewApp", "Failed checking update from $baseUrl: ${e.message}")
                 }
             }
         } catch (e: Exception) {
@@ -1731,10 +1774,10 @@ fun RimonSportsSplashScreen(
                 shape = RoundedCornerShape(32.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent)
             ) {
-                if (appLogoUrl.isNotEmpty()) {
+                if (appLogoUrl.isNotBlank()) {
                     AsyncImage(
                         model = appLogoUrl,
-                        contentDescription = "Dynamic App Logo",
+                        contentDescription = "App Logo",
                         modifier = Modifier
                             .fillMaxSize()
                             .clip(RoundedCornerShape(32.dp)),
