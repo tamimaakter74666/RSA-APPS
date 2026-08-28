@@ -1589,46 +1589,91 @@ private fun downloadAndInstallApk(
 ) {
     kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
         try {
+            val candidateUrls = mutableListOf<String>()
+            if (downloadUrl.isNotEmpty()) {
+                candidateUrls.add(downloadUrl)
+            }
+            if (downloadUrl.contains("/releases/download/")) {
+                val latestUrl = downloadUrl.replace(Regex("/releases/download/[^/]+/"), "/releases/download/latest/")
+                if (!candidateUrls.contains(latestUrl)) {
+                    candidateUrls.add(latestUrl)
+                }
+            }
+            val fallbackUrl = "https://github.com/tamimaakter74666/RSA-APPS/releases/download/latest/rimon_sports_release.apk"
+            if (!candidateUrls.contains(fallbackUrl)) {
+                candidateUrls.add(fallbackUrl)
+            }
+
             val client = OkHttpClient.Builder()
                 .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                .followRedirects(true)
+                .followSslRedirects(true)
                 .build()
 
-            val request = Request.Builder().url(downloadUrl).build()
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    throw java.io.IOException("Unsuccessful download: $response")
-                }
-                val body = response.body ?: throw java.io.IOException("Zero response size")
-                val totalLength = body.contentLength()
+            var lastException: Exception? = null
+            var successFile: File? = null
 
-                val updateFile = File(context.cacheDir, "rimon_sports_update.apk")
-                if (updateFile.exists()) {
-                    updateFile.delete()
-                }
+            for (url in candidateUrls) {
+                try {
+                    val request = Request.Builder()
+                        .url(url)
+                        .header("User-Agent", "Mozilla/5.0 (Android) RimonSportsApp")
+                        .build()
 
-                body.byteStream().use { input ->
-                    FileOutputStream(updateFile).use { output ->
-                        val buffer = ByteArray(8192)
-                        var read: Int
-                        var written = 0L
-                        while (input.read(buffer).also { read = it } != -1) {
-                            output.write(buffer, 0, read)
-                            written += read
-                            if (totalLength > 0) {
-                                val currentProgress = written.toFloat() / totalLength.toFloat()
-                                withContext(Dispatchers.Main) {
-                                    onProgress(currentProgress)
+                    client.newCall(request).execute().use { response ->
+                        if (!response.isSuccessful) {
+                            throw java.io.IOException("HTTP Error ${response.code}")
+                        }
+                        val body = response.body ?: throw java.io.IOException("Empty response body")
+                        val totalLength = body.contentLength()
+
+                        val updateFile = File(context.cacheDir, "rimon_sports_update.apk")
+                        if (updateFile.exists()) {
+                            updateFile.delete()
+                        }
+
+                        body.byteStream().use { input ->
+                            FileOutputStream(updateFile).use { output ->
+                                val buffer = ByteArray(8192)
+                                var read: Int
+                                var written = 0L
+                                while (input.read(buffer).also { read = it } != -1) {
+                                    output.write(buffer, 0, read)
+                                    written += read
+                                    if (totalLength > 0) {
+                                        val currentProgress = written.toFloat() / totalLength.toFloat()
+                                        withContext(Dispatchers.Main) {
+                                            onProgress(currentProgress)
+                                        }
+                                    }
                                 }
+                                output.flush()
                             }
                         }
-                        output.flush()
+
+                        if (updateFile.exists() && updateFile.length() > 500_000L) {
+                            successFile = updateFile
+                        } else {
+                            if (updateFile.exists()) updateFile.delete()
+                            throw java.io.IOException("Downloaded file is invalid or too small")
+                        }
                     }
+                } catch (e: Exception) {
+                    Log.w("WebViewApp", "Failed download from $url: ${e.message}")
+                    lastException = e
                 }
 
+                if (successFile != null) break
+            }
+
+            val finalFile = successFile
+            if (finalFile != null && finalFile.exists()) {
                 withContext(Dispatchers.Main) {
-                    onComplete(updateFile)
+                    onComplete(finalFile)
                 }
+            } else {
+                throw lastException ?: java.io.IOException("ডাউনলোড ব্যর্থ হয়েছে।")
             }
         } catch (e: Exception) {
             Log.e("WebViewApp", "Download error: ${e.message}", e)
