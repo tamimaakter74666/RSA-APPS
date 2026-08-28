@@ -449,31 +449,10 @@ class MainActivity : ComponentActivity() {
                                                     onProgress = { progress ->
                                                         updateDownloadProgress = progress
                                                     },
-                                                    onComplete = { apkFile ->
-                                                        isDownloadingUpdate = false
-                                                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                                                            if (!context.packageManager.canRequestPackageInstalls()) {
-                                                                android.widget.Toast.makeText(
-                                                                    context,
-                                                                    "দয়া করে Rimon Sports কে অটোমেটিক ইন্সটল করার পারমিশন দিন এবং ইন্সটল সম্পন্ন করতে ফিরে আসুন।",
-                                                                    android.widget.Toast.LENGTH_LONG
-                                                                ).show()
-                                                                try {
-                                                                    val settingsIntent = Intent(
-                                                                        android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                                                                        Uri.parse("package:${context.packageName}")
-                                                                    )
-                                                                    context.startActivity(settingsIntent)
-                                                                } catch (settingsEx: Exception) {
-                                                                    installApk(context, apkFile)
-                                                                }
-                                                            } else {
-                                                                installApk(context, apkFile)
-                                                            }
-                                                        } else {
+                                                        onComplete = { apkFile ->
+                                                            isDownloadingUpdate = false
                                                             installApk(context, apkFile)
-                                                        }
-                                                    },
+                                                        },
                                                     onError = { error ->
                                                         updateErrorMessage = error
                                                     }
@@ -1662,16 +1641,46 @@ private fun downloadAndInstallApk(
 
 private fun installApk(context: Context, apkFile: File) {
     try {
+        if (!apkFile.exists() || apkFile.length() == 0L) {
+            android.widget.Toast.makeText(context, "ডাউনলোড করা ফাইল পাওয়া যায়নি। পুনরায় চেষ্টা করুন।", android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            if (!context.packageManager.canRequestPackageInstalls()) {
+                android.widget.Toast.makeText(
+                    context,
+                    "দয়া করে অটোমেটিক ইনস্টল করার অনুমতি (Allow unknown apps) দিন।",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+                try {
+                    val settingsIntent = Intent(
+                        android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:${context.packageName}")
+                    ).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(settingsIntent)
+                } catch (e: Exception) {
+                    Log.e("WebViewApp", "Failed to open settings: ${e.message}")
+                }
+                return
+            }
+        }
+
         val authority = "${context.packageName}.fileprovider"
         val uri = FileProvider.getUriForFile(context, authority, apkFile)
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, "application/vnd.android.package-archive")
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
         }
         context.startActivity(intent)
     } catch (e: java.lang.Exception) {
         Log.e("WebViewApp", "Install Error: ${e.message}", e)
-        android.widget.Toast.makeText(context, "Install failed: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+        android.widget.Toast.makeText(context, "ইনস্টল ত্রুটি: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
     }
 }
 
@@ -1855,90 +1864,7 @@ fun RimonSportsSplashScreen(
     }
 }
 
-private fun downloadAndInstallApk(
-    context: Context,
-    downloadUrl: String,
-    onProgress: (Float) -> Unit,
-    onComplete: () -> Unit,
-    onError: (String) -> Unit
-) {
-    kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
-        try {
-            val client = okhttp3.OkHttpClient.Builder()
-                .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-                .build()
 
-            val request = okhttp3.Request.Builder().url(downloadUrl).build()
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    throw java.io.IOException("Unexpected response code: ${response.code}")
-                }
-                
-                val body = response.body ?: throw java.io.IOException("Response body is empty")
-                val totalBytes = body.contentLength()
-                
-                // Save to app's cache directory
-                val apkFile = File(context.cacheDir, "rimon_sports_update.apk")
-                if (apkFile.exists()) {
-                    apkFile.delete()
-                }
-
-                val buffer = ByteArray(8192)
-                var bytesRead: Int
-                var totalBytesRead = 0L
-
-                body.byteStream().use { inputStream ->
-                    FileOutputStream(apkFile).use { outputStream ->
-                        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                            outputStream.write(buffer, 0, bytesRead)
-                            totalBytesRead += bytesRead
-                            if (totalBytes > 0) {
-                                val progress = totalBytesRead.toFloat() / totalBytes
-                                withContext(Dispatchers.Main) {
-                                    onProgress(progress)
-                                }
-                            }
-                        }
-                        outputStream.flush()
-                    }
-                }
-
-                // Verify file existence and size
-                if (!apkFile.exists() || apkFile.length() == 0L) {
-                    throw java.io.IOException("File download verification failed")
-                }
-
-                withContext(Dispatchers.Main) {
-                    onComplete()
-                    // Trigger install
-                    triggerInstall(context, apkFile)
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("WebViewApp", "APK Download failed: ${e.message}")
-            withContext(Dispatchers.Main) {
-                onError(e.localizedMessage ?: "Unknown error occurred")
-            }
-        }
-    }
-}
-
-private fun triggerInstall(context: Context, apkFile: File) {
-    try {
-        val authority = "${context.packageName}.fileprovider"
-        val apkUri: Uri = FileProvider.getUriForFile(context, authority, apkFile)
-
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(apkUri, "application/vnd.android.package-archive")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        context.startActivity(intent)
-    } catch (e: Exception) {
-        Log.e("WebViewApp", "Failed to start install intent: ${e.message}")
-    }
-}
 
 fun isInsideMaintenanceWindow(startTimeStr: String, endTimeStr: String): Boolean {
     if (startTimeStr.isEmpty() || endTimeStr.isEmpty()) return false
