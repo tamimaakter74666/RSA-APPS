@@ -1175,10 +1175,16 @@ fun WebViewScreen(
 
                         setDownloadListener { downloadUrl, userAgent, contentDisposition, mimetype, _ ->
                             try {
+                                if (downloadUrl.startsWith("data:")) {
+                                    android.widget.Toast.makeText(context, "Data URI downloads not directly supported.", android.widget.Toast.LENGTH_SHORT).show()
+                                    return@setDownloadListener
+                                }
                                 val request = android.app.DownloadManager.Request(Uri.parse(downloadUrl)).apply {
                                     setMimeType(mimetype)
+                                    val cookies = android.webkit.CookieManager.getInstance().getCookie(downloadUrl)
+                                    addRequestHeader("cookie", cookies)
                                     addRequestHeader("User-Agent", userAgent)
-                                    setDescription("Downloading file from Portal...")
+                                    setDescription("Downloading file...")
                                     setTitle(android.webkit.URLUtil.guessFileName(downloadUrl, contentDisposition, mimetype))
                                     setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                                     setDestinationInExternalPublicDir(
@@ -1196,6 +1202,7 @@ fun WebViewScreen(
                                     context.startActivity(intent)
                                 } catch (ex: Exception) {
                                     Log.e("WebViewApp", "No app handled download link: ${ex.message}")
+                                    android.widget.Toast.makeText(context, "Could not download file.", android.widget.Toast.LENGTH_SHORT).show()
                                 }
                             }
                         }
