@@ -69,6 +69,28 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 
+class WebAppInterface(private val context: Context) {
+    @android.webkit.JavascriptInterface
+    fun getBase64FromBlobData(base64Data: String, mimeType: String) {
+        try {
+            val fileData = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
+            val extension = android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType) ?: "bin"
+            val fileName = "download_" + System.currentTimeMillis() + "." + extension
+            val path = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+            val file = java.io.File(path, fileName)
+            val fos = java.io.FileOutputStream(file)
+            fos.write(fileData)
+            fos.flush()
+            fos.close()
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                android.widget.Toast.makeText(context, "File downloaded to Downloads folder", android.widget.Toast.LENGTH_LONG).show()
+            }
+        } catch (e: Exception) {
+            Log.e("WebViewApp", "Error saving base64: ${e.message}")
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
 
@@ -991,6 +1013,8 @@ fun WebViewScreen(
 
                         // Enable web contents debugging for developers
                         WebView.setWebContentsDebuggingEnabled(true)
+                        
+                        addJavascriptInterface(WebAppInterface(context), "AndroidDownloader")
 
                         settings.apply {
                             javaScriptEnabled = true
@@ -1176,9 +1200,71 @@ fun WebViewScreen(
                         setDownloadListener { downloadUrl, userAgent, contentDisposition, mimetype, _ ->
                             try {
                                 if (downloadUrl.startsWith("data:")) {
-                                    android.widget.Toast.makeText(context, "Data URI downloads not directly supported.", android.widget.Toast.LENGTH_SHORT).show()
+                                    try {
+                                        val base64Index = downloadUrl.indexOf(";base64,")
+                                        if (base64Index != -1) {
+                                            val base64Data = downloadUrl.substring(base64Index + 8)
+                                            val fileData = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
+                                            
+                                            var extractedMime = mimetype
+                                            if (extractedMime.isNullOrEmpty()) {
+                                                val mimeStart = downloadUrl.indexOf(":") + 1
+                                                val mimeEnd = if (downloadUrl.indexOf(";") != -1) downloadUrl.indexOf(";") else base64Index
+                                                if (mimeStart < mimeEnd) {
+                                                    extractedMime = downloadUrl.substring(mimeStart, mimeEnd)
+                                                }
+                                            }
+                                            
+                                            val extension = android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(extractedMime) ?: "bin"
+                                            val fileName = "download_" + System.currentTimeMillis() + "." + extension
+                                            
+                                            val path = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                                            val file = java.io.File(path, fileName)
+                                            
+                                            val fos = java.io.FileOutputStream(file)
+                                            fos.write(fileData)
+                                            fos.flush()
+                                            fos.close()
+                                            
+                                            android.widget.Toast.makeText(context, "File downloaded to Downloads folder", android.widget.Toast.LENGTH_LONG).show()
+                                        } else {
+                                            android.widget.Toast.makeText(context, "Unsupported data URI format", android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                    } catch (e: Exception) {
+                                        Log.e("WebViewApp", "Error saving data URI: ${e.message}")
+                                        android.widget.Toast.makeText(context, "Failed to save file", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
                                     return@setDownloadListener
                                 }
+                                
+                                if (downloadUrl.startsWith("blob:")) {
+                                    val js = """
+                                        var xhr = new XMLHttpRequest();
+                                        xhr.open('GET', '$downloadUrl', true);
+                                        xhr.responseType = 'blob';
+                                        xhr.onload = function(e) {
+                                            if (this.status == 200) {
+                                                var blob = this.response;
+                                                var reader = new FileReader();
+                                                reader.readAsDataURL(blob);
+                                                reader.onloadend = function() {
+                                                    var base64data = reader.result;
+                                                    var b64Index = base64data.indexOf(';base64,');
+                                                    if(b64Index != -1) {
+                                                        var b64 = base64data.substring(b64Index + 8);
+                                                        var mime = base64data.substring(5, b64Index);
+                                                        AndroidDownloader.getBase64FromBlobData(b64, mime);
+                                                    }
+                                                }
+                                            }
+                                        };
+                                        xhr.send();
+                                    """.trimIndent()
+                                    evaluateJavascript(js, null)
+                                    android.widget.Toast.makeText(context, "Starting download...", android.widget.Toast.LENGTH_SHORT).show()
+                                    return@setDownloadListener
+                                }
+
                                 val request = android.app.DownloadManager.Request(Uri.parse(downloadUrl)).apply {
                                     setMimeType(mimetype)
                                     val cookies = android.webkit.CookieManager.getInstance().getCookie(downloadUrl)
