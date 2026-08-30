@@ -76,14 +76,28 @@ class WebAppInterface(private val context: Context) {
             val fileData = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
             val extension = android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType) ?: "bin"
             val fileName = "download_" + System.currentTimeMillis() + "." + extension
-            val path = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+            
+            val isImage = mimeType.startsWith("image/")
+            val dirType = if (isImage) android.os.Environment.DIRECTORY_PICTURES else android.os.Environment.DIRECTORY_DOWNLOADS
+            val path = android.os.Environment.getExternalStoragePublicDirectory(dirType)
             val file = java.io.File(path, fileName)
             val fos = java.io.FileOutputStream(file)
             fos.write(fileData)
             fos.flush()
             fos.close()
+            
+            // Notify Gallery/Media Scanner
+            android.media.MediaScannerConnection.scanFile(
+                context, 
+                arrayOf(file.absolutePath), 
+                arrayOf(mimeType)
+            ) { path, uri -> 
+                Log.i("WebViewApp", "Scanned $path: -> uri=$uri") 
+            }
+
             android.os.Handler(android.os.Looper.getMainLooper()).post {
-                android.widget.Toast.makeText(context, "File downloaded to Downloads folder", android.widget.Toast.LENGTH_LONG).show()
+                val folderName = if (mimeType.startsWith("image/")) "Pictures" else "Downloads"
+                android.widget.Toast.makeText(context, "File downloaded to $folderName folder", android.widget.Toast.LENGTH_LONG).show()
             }
         } catch (e: Exception) {
             Log.e("WebViewApp", "Error saving base64: ${e.message}")
@@ -1218,7 +1232,9 @@ fun WebViewScreen(
                                             val extension = android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(extractedMime) ?: "bin"
                                             val fileName = "download_" + System.currentTimeMillis() + "." + extension
                                             
-                                            val path = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                                            val isImage = extractedMime.startsWith("image/")
+                                            val dirType = if (isImage) android.os.Environment.DIRECTORY_PICTURES else android.os.Environment.DIRECTORY_DOWNLOADS
+                                            val path = android.os.Environment.getExternalStoragePublicDirectory(dirType)
                                             val file = java.io.File(path, fileName)
                                             
                                             val fos = java.io.FileOutputStream(file)
@@ -1226,7 +1242,17 @@ fun WebViewScreen(
                                             fos.flush()
                                             fos.close()
                                             
-                                            android.widget.Toast.makeText(context, "File downloaded to Downloads folder", android.widget.Toast.LENGTH_LONG).show()
+                                            // Notify Gallery/Media Scanner
+                                            android.media.MediaScannerConnection.scanFile(
+                                                context, 
+                                                arrayOf(file.absolutePath), 
+                                                arrayOf(extractedMime)
+                                            ) { path, uri -> 
+                                                Log.i("WebViewApp", "Scanned $path: -> uri=$uri") 
+                                            }
+                                            
+                                            val folderName = if (extractedMime.startsWith("image/")) "Pictures" else "Downloads"
+                                            android.widget.Toast.makeText(context, "File downloaded to $folderName folder", android.widget.Toast.LENGTH_LONG).show()
                                         } else {
                                             android.widget.Toast.makeText(context, "Unsupported data URI format", android.widget.Toast.LENGTH_SHORT).show()
                                         }
@@ -1273,10 +1299,15 @@ fun WebViewScreen(
                                     setDescription("Downloading file...")
                                     setTitle(android.webkit.URLUtil.guessFileName(downloadUrl, contentDisposition, mimetype))
                                     setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                                    val isImage = mimetype != null && mimetype.startsWith("image/")
+                                    val dirType = if (isImage) android.os.Environment.DIRECTORY_PICTURES else android.os.Environment.DIRECTORY_DOWNLOADS
                                     setDestinationInExternalPublicDir(
-                                        android.os.Environment.DIRECTORY_DOWNLOADS,
+                                        dirType,
                                         android.webkit.URLUtil.guessFileName(downloadUrl, contentDisposition, mimetype)
                                     )
+                                    // For older devices to scan
+                                    @Suppress("DEPRECATION")
+                                    allowScanningByMediaScanner()
                                 }
                                 val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
                                 dm.enqueue(request)
