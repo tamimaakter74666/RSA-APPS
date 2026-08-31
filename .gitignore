@@ -15,7 +15,6 @@
 .cxx
 local.properties
 .env
-debug.keystore
 
 # Ignore generated build outputs and binaries
 /app-debug.apk
@@ -25,3 +24,12 @@ debug.keystore
 /landing_page/app-debug.zip
 /landing_page/app-debug.pdf
 
+/app-release.apk
+/app-release.zip
+/app-release.pdf
+/landing_page/app-release.apk
+/landing_page/app-release.zip
+/landing_page/app-release.pdf
+*.keystore
+*.keystore.base64
+.build-outputs/

@@ -165,19 +165,19 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.tooling)
 }
 
-val apkProvider = layout.buildDirectory.file("outputs/apk/debug/app-debug.apk")
+val apkProvider = layout.buildDirectory.file("outputs/apk/release/app-release.apk")
 val rootDirFile = rootDir
 val landingPageDirFile = file("${rootDir}/landing_page")
 
 tasks.register("copyApkToLandingPages") {
-  dependsOn("assembleDebug")
+  dependsOn("assembleRelease")
   val inputApk = apkProvider
-  val dest1 = rootDirFile.resolve("app-debug.apk")
-  val dest2 = landingPageDirFile.resolve("app-debug.apk")
-  val dest1Zip = rootDirFile.resolve("app-debug.zip")
-  val dest2Zip = landingPageDirFile.resolve("app-debug.zip")
-  val dest1Pdf = rootDirFile.resolve("app-debug.pdf")
-  val dest2Pdf = landingPageDirFile.resolve("app-debug.pdf")
+  val dest1 = rootDirFile.resolve("app-release.apk")
+  val dest2 = landingPageDirFile.resolve("app-release.apk")
+  val dest1Zip = rootDirFile.resolve("app-release.zip")
+  val dest2Zip = landingPageDirFile.resolve("app-release.zip")
+  val dest1Pdf = rootDirFile.resolve("app-release.pdf")
+  val dest2Pdf = landingPageDirFile.resolve("app-release.pdf")
   
   doLast {
     val apkFile = inputApk.get().asFile
@@ -193,7 +193,7 @@ tasks.register("copyApkToLandingPages") {
       fun createRealZip(sourceFile: File, zipFile: File) {
         FileOutputStream(zipFile).use { fos ->
           ZipOutputStream(fos).use { zos ->
-            val entry = ZipEntry("app-debug.apk")
+            val entry = ZipEntry("app-release.apk")
             zos.putNextEntry(entry)
             sourceFile.inputStream().use { fis ->
               fis.copyTo(zos)
@@ -214,7 +214,7 @@ tasks.register("copyApkToLandingPages") {
 }
 
 tasks.whenTaskAdded {
-  if (name == "assembleDebug") {
+  if (name == "assembleRelease") {
     finalizedBy("copyApkToLandingPages")
   }
 }
