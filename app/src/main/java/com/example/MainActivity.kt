@@ -69,7 +69,63 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 
-class WebAppInterface(private val context: Context) {
+class HardwareMicroEngineInterface(
+    private val context: Context,
+    private val onThemeColorReceived: ((String) -> Unit)? = null
+) {
+    private val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as android.os.VibratorManager
+        vibratorManager.defaultVibrator
+    } else {
+        @Suppress("DEPRECATION")
+        context.getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
+    }
+
+    @android.webkit.JavascriptInterface
+    fun updateThemeColor(color: String?) {
+        if (color != null) {
+            onThemeColorReceived?.invoke(color)
+        }
+    }
+    
+    @android.webkit.JavascriptInterface
+    fun pulse(durationMs: Long, amplitude: Int) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val safeAmplitude = if (amplitude in 1..255) amplitude else android.os.VibrationEffect.DEFAULT_AMPLITUDE
+            vibrator.vibrate(android.os.VibrationEffect.createOneShot(durationMs, safeAmplitude))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(durationMs)
+        }
+    }
+
+    @android.webkit.JavascriptInterface
+    fun getDpi(): Float {
+        return context.resources.displayMetrics.density
+    }
+
+    @android.webkit.JavascriptInterface
+    fun getRefreshRate(): Float {
+        val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as android.hardware.display.DisplayManager
+        return displayManager.getDisplay(android.view.Display.DEFAULT_DISPLAY)?.refreshRate ?: 60f
+    }
+    
+    // We can pass dynamic safe area top from Compose, or just calculate it from window insets if we have access to the view.
+    // For simplicity, we can fetch it via resources (status bar height)
+    @android.webkit.JavascriptInterface
+    fun getSafeAreaTop(): Int {
+        val resourceId = context.resources.getIdentifier("status_bar_height", "dimen", "android")
+        if (resourceId > 0) {
+            val px = context.resources.getDimensionPixelSize(resourceId)
+            return (px / context.resources.displayMetrics.density).toInt()
+        }
+        return 0
+    }
+}
+
+class WebAppInterface(
+    private val context: Context
+) {
     @android.webkit.JavascriptInterface
     fun getBase64FromBlobData(base64Data: String, mimeType: String) {
         try {
@@ -238,6 +294,17 @@ class MainActivity : ComponentActivity() {
                 var bypassOfflineCheck by remember { mutableStateOf(false) }
                 var connectivityRefreshTrigger by remember { mutableStateOf(0) }
                 var showExitConfirmationDialog by remember { mutableStateOf(false) }
+                var themeColorHex by remember { mutableStateOf<String?>(null) }
+                
+                val dynamicThemeColor = remember(themeColorHex, isNightTime()) {
+                    themeColorHex?.let { hex ->
+                        try {
+                            Color(android.graphics.Color.parseColor(hex))
+                        } catch (e: Exception) {
+                            null
+                        }
+                    } ?: if (isNightTime()) Color(0xFF010307) else BentoBackground
+                }
 
                 if (showAdminPanel) {
                     SecretAdminPanel(onDismissRequest = { showAdminPanel = false })
@@ -297,14 +364,14 @@ class MainActivity : ComponentActivity() {
                 Box(modifier = Modifier.fillMaxSize()) {
                     Scaffold(
                         modifier = Modifier.fillMaxSize(),
-                        containerColor = BentoBackground,
+                        containerColor = dynamicThemeColor,
                         topBar = {
-                            Column(modifier = Modifier.fillMaxWidth().background(BentoBackground)) {
+                            Column(modifier = Modifier.fillMaxWidth().background(dynamicThemeColor)) {
                                 Spacer(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .windowInsetsTopHeight(WindowInsets.statusBars)
-                                        .background(BentoBackground)
+                                        .background(dynamicThemeColor)
                                 )
                                 if (!isWebViewExpanded) {
                                     TopAppBar(
@@ -422,6 +489,9 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier.fillMaxSize(),
                                 onWebViewCreated = { webView ->
                                     webViewRef.value = webView
+                                },
+                                onThemeColorReceived = { colorHex ->
+                                    themeColorHex = colorHex
                                 }
                             )
                         }
@@ -958,7 +1028,8 @@ fun clearWebViewData(context: android.content.Context, webView: android.webkit.W
 fun WebViewScreen(
     url: String,
     modifier: Modifier = Modifier,
-    onWebViewCreated: (WebView) -> Unit = {}
+    onWebViewCreated: (WebView) -> Unit = {},
+    onThemeColorReceived: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
@@ -1029,6 +1100,7 @@ fun WebViewScreen(
                         WebView.setWebContentsDebuggingEnabled(true)
                         
                         addJavascriptInterface(WebAppInterface(context), "AndroidDownloader")
+                        addJavascriptInterface(HardwareMicroEngineInterface(context, onThemeColorReceived), "AndroidNativeEngine")
 
                         settings.apply {
                             javaScriptEnabled = true
@@ -1090,6 +1162,32 @@ fun WebViewScreen(
                                 isLoading = false
                                 if (view != null) {
                                     injectAntiPwaScript(view)
+                                    val themeJs = """
+                                        (function() {
+                                            function sendThemeColor() {
+                                                var metaTheme = document.querySelector('meta[name="theme-color"]');
+                                                if (metaTheme) {
+                                                    AndroidNativeEngine.updateThemeColor(metaTheme.getAttribute('content'));
+                                                }
+                                            }
+                                            sendThemeColor();
+                                            
+                                            // Direct Hardware Engine Bindings
+                                            window.HardwareMicroEngine = {
+                                                pulse: function(ms, amp) { 
+                                                    if(window.AndroidNativeEngine) {
+                                                        window.AndroidNativeEngine.pulse(ms, amp || 255);
+                                                    }
+                                                },
+                                                telemetry: {
+                                                    get dpi() { return window.AndroidNativeEngine ? window.AndroidNativeEngine.getDpi() : window.devicePixelRatio; },
+                                                    get refreshRate() { return window.AndroidNativeEngine ? window.AndroidNativeEngine.getRefreshRate() : 120; },
+                                                    get safeAreaTop() { return window.AndroidNativeEngine ? window.AndroidNativeEngine.getSafeAreaTop() : parseInt(getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-top)') || '0'); }
+                                                }
+                                            };
+                                        })();
+                                    """.trimIndent()
+                                    view.evaluateJavascript(themeJs, null)
                                 }
                                 // Clean, zero disk access on UI thread
                                 if (url != null) {

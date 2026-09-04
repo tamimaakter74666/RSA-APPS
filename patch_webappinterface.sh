@@ -1,0 +1,24 @@
+#!/bin/bash
+cat << 'INNER_EOF' > app/src/main/java/com/example/MainActivity.kt.patch
+--- app/src/main/java/com/example/MainActivity.kt
++++ app/src/main/java/com/example/MainActivity.kt
+@@ -70,3 +70,6 @@
+ 
+-class WebAppInterface(private val context: Context) {
++class WebAppInterface(
++    private val context: Context,
++    private val onThemeColorReceived: ((String) -> Unit)? = null
++) {
+ 
+@@ -88,2 +91,9 @@
+ 
++    @android.webkit.JavascriptInterface
++    fun updateThemeColor(color: String?) {
++        if (color != null) {
++            onThemeColorReceived?.invoke(color)
++        }
++    }
++
+     @android.webkit.JavascriptInterface
+INNER_EOF
+patch -p0 < app/src/main/java/com/example/MainActivity.kt.patch
